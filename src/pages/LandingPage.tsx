@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Car, Bike, Truck, MapPin, Calendar, ArrowRight } from "lucide-react";
+import { Car, Bike, Truck, DollarSign, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RoamlyLogo } from "@/components/RoamlyLogo";
+import { PlacesAutocomplete } from "@/components/PlacesAutocomplete";
 
 const tripLengths = ["Day trip", "Weekend", "Full week", "Custom"];
-const budgets = ["$", "$$", "$$$", "No limit"];
 const travelModes = [
   { icon: Car, label: "Car" },
   { icon: Truck, label: "RV" },
@@ -19,11 +19,12 @@ export default function LandingPage() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [tripLength, setTripLength] = useState("Weekend");
-  const [budget, setBudget] = useState("$$");
+  const [budgetAmount, setBudgetAmount] = useState("");
   const [mode, setMode] = useState("Car");
 
   const handlePlanTrip = () => {
     if (!from.trim() || !to.trim()) return;
+    const budget = budgetAmount.trim() ? `$${budgetAmount.trim()}` : "No limit";
     navigate("/plan", { state: { from: from.trim(), to: to.trim(), days: tripLength, budget, mode } });
   };
 
@@ -39,7 +40,6 @@ export default function LandingPage() {
 
       {/* Hero */}
       <section className="pt-32 pb-20 px-4 sm:px-6 relative overflow-hidden">
-        {/* Background decoration */}
         <div className="absolute inset-0 -z-10">
           <div className="absolute top-20 right-0 w-[500px] h-[500px] rounded-full bg-accent/5 blur-3xl" />
           <div className="absolute bottom-0 left-0 w-[400px] h-[400px] rounded-full bg-primary/5 blur-3xl" />
@@ -70,21 +70,15 @@ export default function LandingPage() {
             transition={{ duration: 0.6, delay: 0.3 }}
             className="bg-card rounded-2xl shadow-xl border border-border/60 p-6 sm:p-8 max-w-3xl mx-auto text-left"
           >
-            {/* From / To */}
+            {/* From / To with Places Autocomplete */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
               <div>
                 <label className="text-xs font-body font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">From</label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input value={from} onChange={e => setFrom(e.target.value)} className="pl-10 font-body" placeholder="Starting point" />
-                </div>
+                <PlacesAutocomplete value={from} onChange={setFrom} placeholder="Starting point" iconClassName="text-muted-foreground" />
               </div>
               <div>
                 <label className="text-xs font-body font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">To</label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-accent" />
-                  <Input value={to} onChange={e => setTo(e.target.value)} className="pl-10 font-body" placeholder="Destination" />
-                </div>
+                <PlacesAutocomplete value={to} onChange={setTo} placeholder="Destination" iconClassName="text-accent" />
               </div>
             </div>
 
@@ -108,24 +102,21 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* Budget */}
+            {/* Budget - Dollar Input */}
             <div className="mb-6">
               <label className="text-xs font-body font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">Budget</label>
-              <div className="flex flex-wrap gap-2">
-                {budgets.map(b => (
-                  <button
-                    key={b}
-                    onClick={() => setBudget(b)}
-                    className={`px-4 py-2 rounded-full text-sm font-body font-medium transition-all ${
-                      budget === b
-                        ? "bg-accent text-accent-foreground shadow-md"
-                        : "bg-secondary text-secondary-foreground hover:bg-secondary/70"
-                    }`}
-                  >
-                    {b}
-                  </button>
-                ))}
+              <div className="relative max-w-[200px]">
+                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  type="number"
+                  value={budgetAmount}
+                  onChange={e => setBudgetAmount(e.target.value)}
+                  className="pl-9 font-body"
+                  placeholder="e.g. 500"
+                  min="0"
+                />
               </div>
+              <p className="text-xs text-muted-foreground font-body mt-1.5">Leave empty for no limit</p>
             </div>
 
             {/* Travel Mode */}

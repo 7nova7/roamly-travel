@@ -22,7 +22,7 @@ serve(async (req) => {
   }
 
   try {
-    const { from, to, days, budget, mode, interests, pace, mustSees } = await req.json();
+    const { from, to, days, budget, mode, interests, pace, mustSees, adjustmentRequest, currentItinerary } = await req.json();
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -31,7 +31,7 @@ serve(async (req) => {
 
     const daysNum = typeof days === "number" ? days : parseDays(days);
 
-    const systemPrompt = `You are an expert road trip planner. Generate a detailed day-by-day road trip itinerary.
+    let systemPrompt = `You are an expert road trip planner. Generate a detailed day-by-day road trip itinerary.
 
 Trip details:
 - From: ${from}
@@ -55,6 +55,17 @@ Requirements:
 - Make driving time estimates realistic
 - Include an estimated total cost per day`;
 
+    if (adjustmentRequest) {
+      systemPrompt += `\n\nIMPORTANT ADJUSTMENT REQUEST: The user wants to modify the existing itinerary: "${adjustmentRequest}". Apply this adjustment while keeping the same general structure and real place data. Make targeted changes rather than regenerating everything from scratch.`;
+      if (currentItinerary) {
+        systemPrompt += `\n\nCurrent itinerary to modify:\n${currentItinerary}`;
+      }
+    }
+
+    const userMessage = adjustmentRequest
+      ? `Adjust the existing ${daysNum}-day road trip itinerary from ${from} to ${to}: ${adjustmentRequest}`
+      : `Generate a ${daysNum}-day road trip itinerary from ${from} to ${to}.`;
+
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -65,7 +76,7 @@ Requirements:
         model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Generate a ${daysNum}-day road trip itinerary from ${from} to ${to}.` },
+          { role: "user", content: userMessage },
         ],
         tools: [
           {

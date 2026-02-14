@@ -30,6 +30,7 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
   const [generatedItinerary, setGeneratedItinerary] = useState<DayPlan[] | null>(null);
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [selectedPace, setSelectedPace] = useState("");
+  const [mustSeesValue, setMustSeesValue] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -51,7 +52,6 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
     }
   }, [messages, isTyping]);
 
-  // Start conversation with real trip data
   useEffect(() => {
     if (phase === 0) {
       setPhase(1);
@@ -91,6 +91,7 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
 
   const handleSpotsSubmit = async () => {
     const mustSees = inputValue.trim() || "No specific spots — surprise me!";
+    setMustSeesValue(mustSees);
     addUserMessage(mustSees);
     setInputValue("");
 
@@ -103,7 +104,7 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
     }, 300);
   };
 
-  const generateItinerary = async (mustSees: string) => {
+  const generateItinerary = async (mustSees: string, adjustmentRequest?: string, currentItinerary?: DayPlan[]) => {
     try {
       const { data, error } = await supabase.functions.invoke("generate-itinerary", {
         body: {
@@ -115,6 +116,8 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
           interests: selectedInterests,
           pace: selectedPace,
           mustSees,
+          adjustmentRequest,
+          currentItinerary: currentItinerary ? JSON.stringify(currentItinerary) : undefined,
         },
       });
 
@@ -125,18 +128,20 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
       setGeneratedItinerary(itinerary);
 
       // Remove loading, show itinerary
-      setMessages(prev => prev.filter(m => m.id !== "loading"));
+      setMessages(prev => prev.filter(m => m.id !== "loading" && m.id !== "itinerary" && m.id !== "actions"));
       setMessages(prev => [...prev, { id: "itinerary", sender: "bot", content: "", type: "itinerary" }]);
       onItineraryReady(itinerary);
 
       setTimeout(() => {
         addBotMessage(
-          "Here's your optimized plan! I clustered nearby stops together and ordered everything around opening hours. Want me to adjust anything?",
+          adjustmentRequest
+            ? "Done! I've updated your itinerary. Want me to adjust anything else?"
+            : "Here's your optimized plan! I clustered nearby stops together and ordered everything around opening hours. Want me to adjust anything?",
           "text",
           600
         );
         setTimeout(() => {
-          setMessages(prev => [...prev, { id: "actions", sender: "bot", content: "", type: "actions" }]);
+          setMessages(prev => [...prev, { id: `actions-${Date.now()}`, sender: "bot", content: "", type: "actions" }]);
         }, 1400);
       }, 500);
     } catch (err: any) {
@@ -151,9 +156,19 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
     }
   };
 
+  const handleActionChip = (action: string) => {
+    addUserMessage(action);
+    setTimeout(() => {
+      addBotMessage("On it! Adjusting your itinerary... 🔄", "text", 400);
+      setTimeout(() => {
+        setMessages(prev => [...prev, { id: "loading", sender: "bot", content: "", type: "loading" }]);
+        generateItinerary(mustSeesValue || "None", action, generatedItinerary || undefined);
+      }, 1200);
+    }, 300);
+  };
+
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Chat header */}
       <div className="px-4 py-3 border-b border-border flex items-center gap-3 shrink-0">
         <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-body font-bold">R</div>
         <div>
@@ -162,7 +177,6 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
         </div>
       </div>
 
-      {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4 custom-scrollbar">
         <AnimatePresence>
           {messages.map((msg) => (
@@ -210,7 +224,7 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
                   ))}
                 </div>
               )}
-              {msg.type === "actions" && <ActionChips />}
+              {msg.type === "actions" && <ActionChips onAction={handleActionChip} />}
             </motion.div>
           ))}
         </AnimatePresence>
@@ -294,12 +308,13 @@ function LoadingAnimation() {
   );
 }
 
-function ActionChips() {
+function ActionChips({ onAction }: { onAction: (action: string) => void }) {
   return (
     <div className="w-full max-w-[85%] flex flex-wrap gap-2">
       {["Add more stops", "Make it more relaxed", "Swap Day 1 and 2", "Find restaurants near stops"].map(action => (
         <button
           key={action}
+          onClick={() => onAction(action)}
           className="px-3 py-1.5 rounded-full text-xs font-body font-medium bg-secondary text-secondary-foreground hover:bg-accent hover:text-accent-foreground transition-all border border-border/50"
         >
           {action}
