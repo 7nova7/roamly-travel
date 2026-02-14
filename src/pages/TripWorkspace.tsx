@@ -1,0 +1,92 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Map, MessageSquare, Plus, User } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { RoamlyLogo } from "@/components/RoamlyLogo";
+import { ChatPanel } from "@/components/ChatPanel";
+import { TripMap } from "@/components/TripMap";
+import { DEMO_TRIP, type DayPlan } from "@/data/demoTrip";
+import { useIsMobile } from "@/hooks/use-mobile";
+
+export default function TripWorkspace() {
+  const navigate = useNavigate();
+  const isMobile = useIsMobile();
+  const [highlightedStop, setHighlightedStop] = useState<string | null>(null);
+  const [itinerary, setItinerary] = useState<DayPlan[] | null>(null);
+  const [showMap, setShowMap] = useState(!isMobile);
+
+  return (
+    <div className="h-screen flex flex-col bg-background">
+      {/* Top Nav */}
+      <nav className="h-14 border-b border-border flex items-center justify-between px-4 shrink-0 bg-card z-20">
+        <button onClick={() => navigate("/")} className="shrink-0">
+          <RoamlyLogo size="sm" className="text-primary" />
+        </button>
+        <div className="hidden sm:flex items-center gap-2 px-4 py-1.5 rounded-full bg-secondary text-xs font-body font-medium text-foreground">
+          {DEMO_TRIP.from} → {DEMO_TRIP.to} | {DEMO_TRIP.days} days | {DEMO_TRIP.budget}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={() => navigate("/")} className="font-body text-xs gap-1">
+            <Plus className="w-3.5 h-3.5" /> New Trip
+          </Button>
+          <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-body font-bold">U</div>
+        </div>
+      </nav>
+
+      {/* Mobile map toggle */}
+      {isMobile && (
+        <button
+          onClick={() => setShowMap(!showMap)}
+          className="flex items-center justify-center gap-2 py-2.5 bg-secondary border-b border-border text-sm font-body font-medium text-foreground z-10"
+        >
+          {showMap ? <MessageSquare className="w-4 h-4" /> : <Map className="w-4 h-4" />}
+          {showMap ? "Show Chat" : "Show Map"}
+        </button>
+      )}
+
+      {/* Main content */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Desktop: side by side */}
+        {!isMobile ? (
+          <>
+            <div className="w-[45%] min-w-[360px] border-r border-border overflow-hidden">
+              <ChatPanel
+                onHighlightStop={setHighlightedStop}
+                highlightedStop={highlightedStop}
+                onItineraryReady={setItinerary}
+              />
+            </div>
+            <div className="flex-1">
+              <TripMap
+                itinerary={itinerary}
+                highlightedStop={highlightedStop}
+                onHighlightStop={setHighlightedStop}
+              />
+            </div>
+          </>
+        ) : (
+          /* Mobile: toggle between map and chat */
+          <>
+            {showMap ? (
+              <div className="flex-1">
+                <TripMap
+                  itinerary={itinerary}
+                  highlightedStop={highlightedStop}
+                  onHighlightStop={setHighlightedStop}
+                />
+              </div>
+            ) : (
+              <div className="flex-1 overflow-hidden">
+                <ChatPanel
+                  onHighlightStop={setHighlightedStop}
+                  highlightedStop={highlightedStop}
+                  onItineraryReady={setItinerary}
+                />
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
