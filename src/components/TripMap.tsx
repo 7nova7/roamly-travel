@@ -1,6 +1,7 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef } from "react";
 import { type DayPlan } from "@/data/demoTrip";
 import { loadGoogleMaps } from "@/lib/google-maps";
+import { createMarkerOverlay, type MarkerOverlayInstance } from "@/lib/map-marker-overlay";
 
 interface TripMapProps {
   itinerary: DayPlan[] | null;
@@ -17,7 +18,7 @@ const DAY_COLORS = ["#1B4332", "#2563EB", "#F4A261", "#D6336C", "#6D28D9", "#0D9
 export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDay, onResetFocus, onStopClick, visible = true }: TripMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<any>(null);
-  const markersRef = useRef<{ [key: string]: any }>({});
+  const markersRef = useRef<{ [key: string]: MarkerOverlayInstance }>({});
   const polylineRef = useRef<any>(null);
 
   // Initialize map
@@ -57,13 +58,12 @@ export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDa
     const gm = (window as any).google.maps;
 
     // Clear old
-    Object.values(markersRef.current).forEach((m: any) => m.setMap(null));
+    Object.values(markersRef.current).forEach((m) => m.remove());
     markersRef.current = {};
     if (polylineRef.current) polylineRef.current.setMap(null);
 
     const bounds = new gm.LatLngBounds();
     const path: any[] = [];
-    let stopNum = 1;
 
     itinerary.forEach((day, dayIdx) => {
       const color = DAY_COLORS[dayIdx % DAY_COLORS.length];
@@ -72,24 +72,15 @@ export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDa
         bounds.extend(pos);
         path.push(pos);
 
-        const marker = new gm.Marker({
-          position: pos,
+        const overlay = createMarkerOverlay(
+          stop,
+          color,
           map,
-          icon: buildIcon(stopNum, color, false),
-          title: stop.name,
-          zIndex: 10,
-        });
+          onHighlightStop,
+          (name, lat, lng) => onStopClick?.(name, lat, lng),
+        );
 
-        marker.addListener("mouseover", () => onHighlightStop(stop.id));
-        marker.addListener("mouseout", () => onHighlightStop(null));
-
-        // Click opens destination panel instead of info window
-        marker.addListener("click", () => {
-          onStopClick?.(stop.name, stop.lat, stop.lng);
-        });
-
-        markersRef.current[stop.id] = marker;
-        stopNum++;
+        markersRef.current[stop.id] = overlay;
       });
     });
 
@@ -161,16 +152,12 @@ export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDa
   // Highlight
   useEffect(() => {
     if (!itinerary) return;
-    let stopNum = 1;
-    itinerary.forEach((day, dayIdx) => {
-      const color = DAY_COLORS[dayIdx % DAY_COLORS.length];
+    itinerary.forEach((day) => {
       day.stops.forEach(stop => {
-        const marker = markersRef.current[stop.id];
-        if (marker) {
-          marker.setIcon(buildIcon(stopNum, color, highlightedStop === stop.id));
-          marker.setZIndex(highlightedStop === stop.id ? 100 : 10);
+        const overlay = markersRef.current[stop.id];
+        if (overlay) {
+          overlay.setHighlighted(highlightedStop === stop.id);
         }
-        stopNum++;
       });
     });
   }, [highlightedStop, itinerary]);
@@ -212,16 +199,3 @@ export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDa
   );
 }
 
-function buildIcon(num: number, color: string, highlighted: boolean) {
-  const size = highlighted ? 36 : 28;
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-      <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - 2}" fill="${color}" stroke="white" stroke-width="3"/>
-      <text x="${size / 2}" y="${size / 2 + 1}" text-anchor="middle" dominant-baseline="central" fill="white" font-family="Plus Jakarta Sans,sans-serif" font-weight="700" font-size="${highlighted ? 14 : 11}">${num}</text>
-    </svg>`;
-  return {
-    url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
-    scaledSize: new ((window as any).google.maps.Size)(size, size),
-    anchor: new ((window as any).google.maps.Point)(size / 2, size / 2),
-  };
-}
