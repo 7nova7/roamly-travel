@@ -1,44 +1,46 @@
 
 
-# Match Reference Map Styling — Vibrant, Colorful Google Maps
+# Add Real Photos to Place Cards (Eat, Stay, Do)
 
 ## What Changes
 
-Update the Google Maps style array in `TripMap.tsx` to produce a vibrant, richly colored map that closely matches the reference screenshot. The current styling is too muted and washed out — the reference shows:
+Each place card in the Eat, Stay, and Do tabs will display a photo fetched from the Google Places API. The same approach already used in the `PhotoCarousel` component will be reused -- `findPlaceFromQuery` to match the place name, then `getDetails` to grab a photo URL.
 
-- **Vivid teal-blue water** (not pale blue)
-- **Rich saturated greens** for parks and natural areas
-- **Warm sandy/tan terrain** for landscape
-- **Yellow-orange highways** with clear road hierarchy
-- **Visible labeled cities** with clean dark text
-- **Subtle building footprints** in urban areas
+## Visual Design
 
-## Visual Targets (from reference)
+Each `PlaceCard` will gain a thumbnail image on the left side:
 
-| Feature | Current | Target |
-|---------|---------|--------|
-| Water | Pale sky blue `#a8d4f0` | Rich teal-blue `#73c2e3` |
-| Parks/forests | Soft mint `#c8e6c0` | Saturated green `#a3d9a5` with darker forests `#7ec882` |
-| Landscape | Warm cream `#f5f0e8` | Warmer sand `#f0ead6` |
-| Highways | White | Warm amber `#f5d076` with orange stroke |
-| Arterial roads | Off-white | Light warm white with visible strokes |
-| City labels | Muted `#4a4540` | Darker, bolder `#333333` |
-| Country/state borders | Default | Subtle visible lines |
+```text
++-------+-------------------------------+
+|       |  Restaurant Name      $$$     |
+| photo |  Italian                      |
+| 80x80 |  ★★★★☆ 4.2                   |
+|       |  Description text...          |
++-------+-------------------------------+
+```
+
+- 80x80px rounded thumbnail on the left
+- Falls back to a subtle icon placeholder if no photo is found
+- Skeleton placeholder while loading
 
 ## Technical Details
 
-### File Modified
+### File: `src/components/destination/PlacePhoto.tsx` (new)
 
-**`src/components/TripMap.tsx`** — Replace the `styles` array (lines 40-70) with an expanded, more vibrant color palette:
+A small standalone component that:
+- Accepts `placeName` and `locationBias` (lat/lng from the parent stop)
+- Uses the existing `loadGoogleMaps()` helper
+- Calls `PlacesService.findPlaceFromQuery` with the place name + location bias
+- Fetches the first photo via `getDetails` with `fields: ["photos"]`
+- Renders a skeleton while loading, a fallback icon if no photo, or the photo
 
-- Water geometry uses richer blue tones
-- Natural landscape uses warmer tan/sand
-- Parks use saturated greens
-- Highways get a subtle warm yellow fill with tan stroke (like Apple Maps)
-- Arterial and local roads remain clean but with visible warm-toned strokes
-- Administrative boundaries and labels are more visible
-- POI parks remain visible; other POIs stay hidden
-- Transit stays hidden for cleanliness
+### File: `src/components/DestinationPanel.tsx` (modified)
 
-No new files or dependencies — only the styles array changes.
+- Pass `stopLat` and `stopLng` down to each `PlaceCard`
+- Update `PlaceCard` layout to a horizontal flex with the photo on the left
+- Import and render `PlacePhoto` inside each `PlaceCard`
+
+### No new dependencies or backend changes needed
+
+The Google Places API is already loaded via `loadGoogleMaps()` with the `places` library. This reuses the exact same pattern as the existing `PhotoCarousel`.
 
