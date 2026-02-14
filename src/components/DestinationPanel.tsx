@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { loadGoogleMaps } from "@/lib/google-maps";
 import { PhotoCarousel } from "@/components/destination/PhotoCarousel";
+import { PlacePhoto } from "@/components/destination/PlacePhoto";
 
 interface DestinationDetails {
   overview: {
@@ -180,6 +181,8 @@ export function DestinationPanel({ stop, onClose }: DestinationPanelProps) {
                   price={r.priceRange}
                   rating={r.rating}
                   description={r.description}
+                  stopLat={stop!.lat}
+                  stopLng={stop!.lng}
                 />
               ))}
             </TabsContent>
@@ -195,6 +198,8 @@ export function DestinationPanel({ stop, onClose }: DestinationPanelProps) {
                   price={s.priceRange}
                   rating={s.rating}
                   description={s.description}
+                  stopLat={stop!.lat}
+                  stopLng={stop!.lng}
                 />
               ))}
             </TabsContent>
@@ -209,6 +214,8 @@ export function DestinationPanel({ stop, onClose }: DestinationPanelProps) {
                   price={t.price}
                   rating={t.rating}
                   description={t.description}
+                  stopLat={stop!.lat}
+                  stopLng={stop!.lng}
                 />
               ))}
             </TabsContent>
@@ -262,31 +269,36 @@ function RatingStars({ rating }: { rating: number }) {
   );
 }
 
-function PlaceCard({ name, subtitle, meta, price, rating, description }: {
+function PlaceCard({ name, subtitle, meta, price, rating, description, stopLat, stopLng }: {
   name: string;
   subtitle: string;
   meta?: string;
   price: string;
   rating: number;
   description: string;
+  stopLat: number;
+  stopLng: number;
 }) {
   return (
-    <div className="bg-secondary/40 rounded-xl p-3.5 hover:bg-secondary/60 transition-colors">
-      <div className="flex items-start justify-between gap-2 mb-1">
-        <div className="min-w-0">
-          <h4 className="font-body font-semibold text-sm text-foreground truncate">{name}</h4>
-          <p className="text-xs font-body text-muted-foreground">{subtitle}</p>
+    <div className="bg-secondary/40 rounded-xl p-3.5 hover:bg-secondary/60 transition-colors flex gap-3">
+      <PlacePhoto placeName={name} lat={stopLat} lng={stopLng} />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-2 mb-1">
+          <div className="min-w-0">
+            <h4 className="font-body font-semibold text-sm text-foreground truncate">{name}</h4>
+            <p className="text-xs font-body text-muted-foreground">{subtitle}</p>
+          </div>
+          <span className="text-xs font-body font-semibold text-accent shrink-0">{price}</span>
         </div>
-        <span className="text-xs font-body font-semibold text-accent shrink-0">{price}</span>
+        <RatingStars rating={rating} />
+        <p className="text-xs font-body text-muted-foreground mt-1.5 leading-relaxed line-clamp-2">{description}</p>
+        {meta && (
+          <div className="flex items-center gap-1 mt-2 text-[10px] font-body text-muted-foreground">
+            <MapPin className="w-3 h-3" />
+            <span className="truncate">{meta}</span>
+          </div>
+        )}
       </div>
-      <RatingStars rating={rating} />
-      <p className="text-xs font-body text-muted-foreground mt-1.5 leading-relaxed">{description}</p>
-      {meta && (
-        <div className="flex items-center gap-1 mt-2 text-[10px] font-body text-muted-foreground">
-          <MapPin className="w-3 h-3" />
-          <span className="truncate">{meta}</span>
-        </div>
-      )}
     </div>
   );
 }
