@@ -75,23 +75,20 @@ export default function TripWorkspace() {
           </>
         ) : (
           <>
-            {showMap ? (
-              <div className="flex-1 relative">
-                <TripMap itinerary={itinerary} highlightedStop={highlightedStop} onHighlightStop={setHighlightedStop} focusedDay={focusedDay} onResetFocus={() => setFocusedDay(null)} onStopClick={handleStopClick} />
-                <DestinationPanel stop={selectedStop} onClose={() => setSelectedStop(null)} />
-              </div>
-            ) : (
-              <div className="flex-1 overflow-hidden">
-                <ChatPanel
-                  tripConfig={tripConfig}
-                  onHighlightStop={setHighlightedStop}
-                  highlightedStop={highlightedStop}
-                  onItineraryReady={setItinerary}
-                  onDayClick={(day) => { setFocusedDay(day); setShowMap(true); }}
-                  onStopClick={(name, lat, lng) => { handleStopClick(name, lat, lng); setShowMap(true); }}
-                />
-              </div>
-            )}
+            <div className={`flex-1 relative ${showMap ? '' : 'hidden'}`}>
+              <TripMap itinerary={itinerary} highlightedStop={highlightedStop} onHighlightStop={setHighlightedStop} focusedDay={focusedDay} onResetFocus={() => setFocusedDay(null)} onStopClick={handleStopClick} />
+              <DestinationPanel stop={selectedStop} onClose={() => setSelectedStop(null)} />
+            </div>
+            <div className={`flex-1 overflow-hidden ${showMap ? 'hidden' : ''}`}>
+              <ChatPanel
+                tripConfig={tripConfig}
+                onHighlightStop={setHighlightedStop}
+                highlightedStop={highlightedStop}
+                onItineraryReady={setItinerary}
+                onDayClick={(day) => { setFocusedDay(day); setShowMap(true); }}
+                onStopClick={(name, lat, lng) => { handleStopClick(name, lat, lng); setShowMap(true); }}
+              />
+            </div>
           </>
         )}
       </div>
