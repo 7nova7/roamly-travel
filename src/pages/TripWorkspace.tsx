@@ -76,7 +76,7 @@ export default function TripWorkspace() {
         ) : (
           <>
             <div className={`flex-1 relative ${showMap ? '' : 'hidden'}`}>
-              <TripMap itinerary={itinerary} highlightedStop={highlightedStop} onHighlightStop={setHighlightedStop} focusedDay={focusedDay} onResetFocus={() => setFocusedDay(null)} onStopClick={handleStopClick} />
+              <TripMap itinerary={itinerary} highlightedStop={highlightedStop} onHighlightStop={setHighlightedStop} focusedDay={focusedDay} onResetFocus={() => setFocusedDay(null)} onStopClick={handleStopClick} visible={showMap} />
               <DestinationPanel stop={selectedStop} onClose={() => setSelectedStop(null)} />
             </div>
             <div className={`flex-1 overflow-hidden ${showMap ? 'hidden' : ''}`}>
