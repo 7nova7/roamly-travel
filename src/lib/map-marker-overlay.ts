@@ -64,39 +64,58 @@ export function createMarkerOverlay(
     div.innerHTML = `
       <div style="
         display: flex;
+        flex-direction: column;
         align-items: center;
-        gap: 6px;
-        background: white;
-        border: 2px solid transparent;
-        border-radius: 20px;
-        padding: 4px 10px 4px 6px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-        white-space: nowrap;
-        font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif;
-        max-width: 180px;
-      " class="marker-pill">
+      ">
         <div style="
-          width: 24px;
-          height: 24px;
-          border-radius: 50%;
-          background: ${dayColor};
           display: flex;
           align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        ">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="${iconPath}"/>
-          </svg>
+          gap: 6px;
+          background: white;
+          border: 2px solid transparent;
+          border-radius: 20px;
+          padding: 4px 10px 4px 6px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+          white-space: nowrap;
+          font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif;
+          max-width: 180px;
+        " class="marker-pill">
+          <div style="
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: ${dayColor};
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+          ">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="${iconPath}"/>
+            </svg>
+          </div>
+          <span style="
+            font-size: 12px;
+            font-weight: 600;
+            color: #1a1a1a;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.2;
+          ">${stop.name}</span>
         </div>
-        <span style="
-          font-size: 12px;
-          font-weight: 600;
-          color: #1a1a1a;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          line-height: 1.2;
-        ">${stop.name}</span>
+        <div style="
+          width: 2px;
+          height: 10px;
+          background: ${dayColor};
+        "></div>
+        <div style="
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: ${dayColor};
+          border: 2px solid white;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        "></div>
       </div>
     `;
 
