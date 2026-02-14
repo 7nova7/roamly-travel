@@ -1,66 +1,44 @@
 
 
-# Elegant Map Markers with Names and Activity Icons
+# Match Reference Map Styling — Vibrant, Colorful Google Maps
 
 ## What Changes
 
-Replace the current simple numbered circle markers on the map with rich, pill-shaped markers inspired by the Mindtrip reference screenshot. Each marker will display:
+Update the Google Maps style array in `TripMap.tsx` to produce a vibrant, richly colored map that closely matches the reference screenshot. The current styling is too muted and washed out — the reference shows:
 
-- A category icon (matching the stop's tags/activity type)
-- The stop name as a label
-- A colored accent dot indicating the day
+- **Vivid teal-blue water** (not pale blue)
+- **Rich saturated greens** for parks and natural areas
+- **Warm sandy/tan terrain** for landscape
+- **Yellow-orange highways** with clear road hierarchy
+- **Visible labeled cities** with clean dark text
+- **Subtle building footprints** in urban areas
 
-The markers will use Google Maps OverlayView (custom HTML overlays) instead of basic SVG Marker icons, enabling full HTML/CSS styling for a polished look.
+## Visual Targets (from reference)
 
----
-
-## Visual Design
-
-Each marker will be a white rounded pill with a subtle shadow, containing:
-- A small icon on the left (e.g., fork-knife for restaurants, camera for photo spots, mountain for hiking, landmark for museums, etc.)
-- The stop name text
-- On hover/highlight: slightly larger with a colored border matching the day color
-
-```
- [icon]  Stop Name
-```
-
----
+| Feature | Current | Target |
+|---------|---------|--------|
+| Water | Pale sky blue `#a8d4f0` | Rich teal-blue `#73c2e3` |
+| Parks/forests | Soft mint `#c8e6c0` | Saturated green `#a3d9a5` with darker forests `#7ec882` |
+| Landscape | Warm cream `#f5f0e8` | Warmer sand `#f0ead6` |
+| Highways | White | Warm amber `#f5d076` with orange stroke |
+| Arterial roads | Off-white | Light warm white with visible strokes |
+| City labels | Muted `#4a4540` | Darker, bolder `#333333` |
+| Country/state borders | Default | Subtle visible lines |
 
 ## Technical Details
 
-### Icon Mapping Logic
+### File Modified
 
-A helper function maps stop tags (e.g., "Food & Drink", "Hiking & Nature", "History & Culture") to appropriate Unicode/SVG icons:
+**`src/components/TripMap.tsx`** — Replace the `styles` array (lines 40-70) with an expanded, more vibrant color palette:
 
-| Tag | Icon |
-|-----|------|
-| Food & Drink | fork-knife symbol |
-| Hiking & Nature | mountain/tree symbol |
-| History & Culture | landmark/columns symbol |
-| Art & Music | palette symbol |
-| Photography Spots | camera symbol |
-| Adventure Sports | climbing symbol |
-| Shopping | bag symbol |
-| Scenic Drives | car symbol |
-| Default | map-pin symbol |
+- Water geometry uses richer blue tones
+- Natural landscape uses warmer tan/sand
+- Parks use saturated greens
+- Highways get a subtle warm yellow fill with tan stroke (like Apple Maps)
+- Arterial and local roads remain clean but with visible warm-toned strokes
+- Administrative boundaries and labels are more visible
+- POI parks remain visible; other POIs stay hidden
+- Transit stays hidden for cleanliness
 
-### Replacing Markers with Custom Overlays
+No new files or dependencies — only the styles array changes.
 
-**`src/components/TripMap.tsx`** will be updated:
-
-1. Replace `google.maps.Marker` with `google.maps.OverlayView` custom class
-2. Each overlay renders a styled HTML div (white pill, shadow, icon + name)
-3. The `buildIcon` function is replaced with a `createMarkerOverlay` function that returns an OverlayView instance
-4. Highlight state changes the border color and slightly scales the marker
-5. Click and hover handlers are attached to the HTML element directly
-
-### Modified Files
-
-| File | Change |
-|------|--------|
-| `src/components/TripMap.tsx` | Replace Marker-based rendering with custom OverlayView HTML markers; add tag-to-icon mapping; update highlight logic to change overlay styles |
-
-### No new dependencies
-- Uses native Google Maps OverlayView API
-- Icons rendered as inline SVG paths (from Lucide icon set, embedded as simple path data to avoid React dependency in the overlay HTML)
