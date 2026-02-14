@@ -19,9 +19,9 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const systemPrompt = `You are a knowledgeable travel guide. Given a destination name and its coordinates, provide detailed, real, and accurate information about the place. Use real restaurant names, real hotel names, real attractions, and realistic pricing. Be specific and helpful.`;
+    const systemPrompt = `You are a concise travel guide. Given a destination, return real info with real names and prices. Keep descriptions to 1 sentence each. Be brief.`;
 
-    const userMessage = `Provide a comprehensive travel guide for "${name}" (coordinates: ${lat}, ${lng}). Include real places, real prices, and accurate descriptions.`;
+    const userMessage = `Quick travel guide for "${name}" at ${lat},${lng}. Real places, brief descriptions.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -30,7 +30,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-2.5-flash-lite",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userMessage },
@@ -47,9 +47,9 @@ serve(async (req) => {
                   overview: {
                     type: "object",
                     properties: {
-                      description: { type: "string", description: "2-3 paragraph description of the destination" },
-                      bestTimeToVisit: { type: "string", description: "Best months/seasons to visit" },
-                      knownFor: { type: "array", items: { type: "string" }, description: "5-6 things this place is known for" },
+                      description: { type: "string", description: "1 short paragraph" },
+                      bestTimeToVisit: { type: "string" },
+                      knownFor: { type: "array", items: { type: "string" }, description: "3-4 highlights" },
                       safetyTips: { type: "string", description: "Brief safety and practical tips" },
                       language: { type: "string", description: "Primary language spoken" },
                       currency: { type: "string", description: "Local currency" },
@@ -66,13 +66,13 @@ serve(async (req) => {
                         cuisine: { type: "string" },
                         priceRange: { type: "string", description: "e.g. $, $$, $$$" },
                         rating: { type: "number", description: "Rating out of 5" },
-                        description: { type: "string", description: "1-2 sentence description" },
+                         description: { type: "string", description: "1 sentence" },
                         address: { type: "string" },
                       },
                       required: ["name", "cuisine", "priceRange", "rating", "description", "address"],
                       additionalProperties: false,
                     },
-                    description: "6 real restaurant recommendations",
+                    description: "4 restaurant recommendations",
                   },
                   stays: {
                     type: "array",
@@ -84,12 +84,12 @@ serve(async (req) => {
                         priceRange: { type: "string", description: "e.g. $80-120/night" },
                         rating: { type: "number", description: "Rating out of 5" },
                         neighborhood: { type: "string" },
-                        description: { type: "string", description: "1-2 sentence description" },
+                         description: { type: "string", description: "1 sentence" },
                       },
                       required: ["name", "type", "priceRange", "rating", "neighborhood", "description"],
                       additionalProperties: false,
                     },
-                    description: "6 real hotel/stay recommendations",
+                    description: "4 hotel/stay recommendations",
                   },
                   thingsToDo: {
                     type: "array",
@@ -100,12 +100,12 @@ serve(async (req) => {
                         category: { type: "string", description: "e.g. Museum, Park, Landmark, Activity" },
                         price: { type: "string", description: "e.g. Free, $15, $25-40" },
                         rating: { type: "number", description: "Rating out of 5" },
-                        description: { type: "string", description: "1-2 sentence description" },
+                        description: { type: "string", description: "1 sentence" },
                       },
                       required: ["name", "category", "price", "rating", "description"],
                       additionalProperties: false,
                     },
-                    description: "6 real activity/attraction recommendations",
+                    description: "4 activity/attraction recommendations",
                   },
                   location: {
                     type: "object",
