@@ -1,36 +1,107 @@
 import { type Stop } from "@/data/demoTrip";
 
-// Lucide-style SVG path data for activity icons
-const ICON_PATHS: Record<string, string> = {
-  "Food & Drink":
-    "M3 2l0 6c0 1.1.9 2 2 2h2l0 12h2V10h2c1.1 0 2-.9 2-2V2M19 2v8a4 4 0 0 1-4 4M19 2v20",
-  "Hiking & Nature":
+// Verified Lucide SVG path data for activity icons (multiple paths per icon)
+const ICON_SVGS: Record<string, string[]> = {
+  "Food & Drink": [
+    // UtensilsCrossed
+    "M16 2l-5.1 5.1M2 16l5.1-5.1",
+    "m14.5 7.5-8 8",
+    "m8.5 2.5 7 7",
+    "m2.5 8.5 7 7",
+    "M22 2 12 12",
+  ],
+  "Hiking & Nature": [
+    // Mountain
     "m8 3 4 8 5-5 5 15H2L8 3z",
-  "History & Culture":
-    "M6 22V12a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v10M2 22h20M12 2l10 5H2l10-5zM8 12v4M12 12v4M16 12v4",
-  "Art & Music":
-    "M12 2a5 5 0 0 1 5 5c0 2-1.5 3.5-3 4.5V22H10V11.5C8.5 10.5 7 9 7 7a5 5 0 0 1 5-5z",
-  "Photography Spots":
-    "M14.5 4h-5L7.5 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3.5L14.5 4zM12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
-  "Adventure Sports":
-    "M2 22l5-5M7 17l3.5-3.5M14 14l-1-1M17.5 10.5L22 6M2 2l5 5M7 7l3.5 3.5",
-  Shopping:
-    "M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0",
-  "Scenic Drives":
-    "M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9L18 10l-2-3H8L6 10l-2.5 1.1C2.7 11.3 2 12.1 2 13v3c0 .6.4 1 1 1h2M7 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0zM13 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0z",
-  Nightlife:
-    "M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z",
-  "Family Activities":
-    "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
-  default:
-    "M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0zM12 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6z",
+  ],
+  "History & Culture": [
+    // Landmark
+    "M3 22h18",
+    "M6 18v-7",
+    "M10 18v-7",
+    "M14 18v-7",
+    "M18 18v-7",
+    "M12 2L2 8h20L12 2z",
+  ],
+  "Art & Music": [
+    // Palette
+    "M12 22C6.5 22 2 17.5 2 12S6.5 2 12 2s10 4.5 10 10c0 1.1-.9 2-2 2h-2.5c-1.1 0-2 .9-2 2 0 .5.2 1 .5 1.3.3.4.5.8.5 1.3 0 1.1-.9 2-2 2z",
+    "M12 6.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0z",
+    "M8 10a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0z",
+    "M17 10a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0z",
+    "M14 7a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0z",
+  ],
+  "Photography Spots": [
+    // Camera
+    "M14.5 4h-5L7.5 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3.5L14.5 4z",
+    "M12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
+  ],
+  "Adventure Sports": [
+    // Bike
+    "M5 17a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
+    "M19 17a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
+    "M12 17V5l-3 3",
+    "M9 8h6",
+  ],
+  Shopping: [
+    // ShoppingBag
+    "M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z",
+    "M3 6h18",
+    "M16 10a4 4 0 0 1-8 0",
+  ],
+  "Scenic Drives": [
+    // Car
+    "M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-2-2.7-3.2C12 5.7 11 5 9 5c-1.4 0-3.3.3-5 1L2 7v9c0 .6.4 1 1 1h2",
+    "M7 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0z",
+    "M13 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0z",
+  ],
+  Nightlife: [
+    // Wine (glass)
+    "M8 22h8",
+    "M12 11v11",
+    "M7.5 2h9l-1 7.4c-.3 2-1.9 3.6-3.9 3.6h-.2c-2 0-3.6-1.6-3.9-3.6L7.5 2z",
+  ],
+  "Family Activities": [
+    // Users
+    "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2",
+    "M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
+    "M22 21v-2a4 4 0 0 0-3-3.87",
+    "M16 3.13a4 4 0 0 1 0 7.75",
+  ],
+  default: [
+    // MapPin
+    "M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z",
+    "M12 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4z",
+  ],
 };
 
-function getIconPath(tags: string[]): string {
+// Keywords to match tags more flexibly
+const TAG_KEYWORDS: [string[], string][] = [
+  [["food", "drink", "restaurant", "dining", "eat", "cafe", "coffee", "bar", "brewery"], "Food & Drink"],
+  [["hik", "nature", "trail", "mountain", "park", "outdoor", "garden", "forest", "lake", "waterfall", "beach"], "Hiking & Nature"],
+  [["histor", "culture", "museum", "heritage", "monument", "landmark", "temple", "church", "castle"], "History & Culture"],
+  [["art", "music", "gallery", "theater", "theatre", "concert", "paint"], "Art & Music"],
+  [["photo", "view", "scenic", "overlook", "vista", "sunset", "sunrise"], "Photography Spots"],
+  [["adventure", "sport", "climb", "surf", "kayak", "ski", "bike", "cycle", "rafting", "zip"], "Adventure Sports"],
+  [["shop", "market", "mall", "boutique", "store"], "Shopping"],
+  [["drive", "road", "highway", "route", "car"], "Scenic Drives"],
+  [["night", "club", "lounge", "pub", "cocktail"], "Nightlife"],
+  [["family", "kid", "child", "amusement", "zoo", "aquarium", "playground"], "Family Activities"],
+];
+
+function getIconPaths(tags: string[]): string[] {
+  // Direct match first
   for (const tag of tags) {
-    if (ICON_PATHS[tag]) return ICON_PATHS[tag];
+    if (ICON_SVGS[tag]) return ICON_SVGS[tag];
   }
-  return ICON_PATHS.default;
+  // Keyword match
+  const tagStr = tags.join(" ").toLowerCase();
+  for (const [keywords, category] of TAG_KEYWORDS) {
+    if (keywords.some(k => tagStr.includes(k))) {
+      return ICON_SVGS[category];
+    }
+  }
+  return ICON_SVGS.default;
 }
 
 export interface MarkerOverlayInstance {
@@ -47,7 +118,7 @@ export function createMarkerOverlay(
 ): MarkerOverlayInstance {
   const gm = (window as any).google.maps;
   const position = new gm.LatLng(stop.lat, stop.lng);
-  const iconPath = getIconPath(stop.tags);
+  const iconPaths = getIconPaths(stop.tags);
 
   let div: HTMLDivElement | null = null;
   let highlighted = false;
@@ -91,7 +162,7 @@ export function createMarkerOverlay(
             flex-shrink: 0;
           ">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="${iconPath}"/>
+              ${iconPaths.map(p => `<path d="${p}"/>`).join("")}
             </svg>
           </div>
           <span style="
