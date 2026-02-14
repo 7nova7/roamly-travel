@@ -9,11 +9,12 @@ interface TripMapProps {
   focusedDay: number | null;
   onResetFocus: () => void;
   onStopClick?: (name: string, lat: number, lng: number) => void;
+  visible?: boolean;
 }
 
 const DAY_COLORS = ["#1B4332", "#2563EB", "#F4A261", "#D6336C", "#6D28D9", "#0D9488", "#EAB308"];
 
-export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDay, onResetFocus, onStopClick }: TripMapProps) {
+export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDay, onResetFocus, onStopClick, visible = true }: TripMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<any>(null);
   const markersRef = useRef<{ [key: string]: any }>({});
@@ -130,6 +131,32 @@ export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDa
       if (!bounds.isEmpty()) map.fitBounds(bounds, { top: 40, bottom: 40, left: 40, right: 40 });
     }
   }, [focusedDay, itinerary]);
+
+  // Resize map when it becomes visible (mobile toggle)
+  useEffect(() => {
+    const map = mapInstance.current;
+    if (!map || !visible) return;
+    const gm = (window as any).google.maps;
+
+    // Trigger resize so Google Maps recalculates container size
+    setTimeout(() => {
+      gm.event.trigger(map, "resize");
+      if (itinerary) {
+        if (focusedDay !== null) {
+          const day = itinerary.find(d => d.day === focusedDay);
+          if (day && day.stops.length > 0) {
+            const bounds = new gm.LatLngBounds();
+            day.stops.forEach(stop => bounds.extend({ lat: stop.lat, lng: stop.lng }));
+            map.fitBounds(bounds, { top: 60, bottom: 60, left: 60, right: 60 });
+          }
+        } else {
+          const bounds = new gm.LatLngBounds();
+          itinerary.forEach(day => day.stops.forEach(stop => bounds.extend({ lat: stop.lat, lng: stop.lng })));
+          if (!bounds.isEmpty()) map.fitBounds(bounds, { top: 40, bottom: 40, left: 40, right: 40 });
+        }
+      }
+    }, 100);
+  }, [visible, itinerary, focusedDay]);
 
   // Highlight
   useEffect(() => {
