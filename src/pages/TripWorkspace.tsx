@@ -1,19 +1,22 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Map, MessageSquare, Plus, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RoamlyLogo } from "@/components/RoamlyLogo";
 import { ChatPanel } from "@/components/ChatPanel";
 import { TripMap } from "@/components/TripMap";
-import { DEMO_TRIP, type DayPlan } from "@/data/demoTrip";
+import { type DayPlan, type TripConfig } from "@/data/demoTrip";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 export default function TripWorkspace() {
   const navigate = useNavigate();
+  const location = useLocation();
   const isMobile = useIsMobile();
   const [highlightedStop, setHighlightedStop] = useState<string | null>(null);
   const [itinerary, setItinerary] = useState<DayPlan[] | null>(null);
   const [showMap, setShowMap] = useState(!isMobile);
+
+  const tripConfig: TripConfig = location.state || { from: "Unknown", to: "Unknown", days: "Weekend", budget: "$$", mode: "Car" };
 
   return (
     <div className="h-screen flex flex-col bg-background">
@@ -23,7 +26,7 @@ export default function TripWorkspace() {
           <RoamlyLogo size="sm" className="text-primary" />
         </button>
         <div className="hidden sm:flex items-center gap-2 px-4 py-1.5 rounded-full bg-secondary text-xs font-body font-medium text-foreground">
-          {DEMO_TRIP.from} → {DEMO_TRIP.to} | {DEMO_TRIP.days} days | {DEMO_TRIP.budget}
+          {tripConfig.from} → {tripConfig.to} | {tripConfig.days} | {tripConfig.budget}
         </div>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={() => navigate("/")} className="font-body text-xs gap-1">
@@ -46,38 +49,30 @@ export default function TripWorkspace() {
 
       {/* Main content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Desktop: side by side */}
         {!isMobile ? (
           <>
             <div className="w-[45%] min-w-[360px] border-r border-border overflow-hidden">
               <ChatPanel
+                tripConfig={tripConfig}
                 onHighlightStop={setHighlightedStop}
                 highlightedStop={highlightedStop}
                 onItineraryReady={setItinerary}
               />
             </div>
             <div className="flex-1">
-              <TripMap
-                itinerary={itinerary}
-                highlightedStop={highlightedStop}
-                onHighlightStop={setHighlightedStop}
-              />
+              <TripMap itinerary={itinerary} highlightedStop={highlightedStop} onHighlightStop={setHighlightedStop} />
             </div>
           </>
         ) : (
-          /* Mobile: toggle between map and chat */
           <>
             {showMap ? (
               <div className="flex-1">
-                <TripMap
-                  itinerary={itinerary}
-                  highlightedStop={highlightedStop}
-                  onHighlightStop={setHighlightedStop}
-                />
+                <TripMap itinerary={itinerary} highlightedStop={highlightedStop} onHighlightStop={setHighlightedStop} />
               </div>
             ) : (
               <div className="flex-1 overflow-hidden">
                 <ChatPanel
+                  tripConfig={tripConfig}
                   onHighlightStop={setHighlightedStop}
                   highlightedStop={highlightedStop}
                   onItineraryReady={setItinerary}

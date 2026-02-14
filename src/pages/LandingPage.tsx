@@ -16,14 +16,15 @@ const travelModes = [
 
 export default function LandingPage() {
   const navigate = useNavigate();
-  const [from, setFrom] = useState("Seattle, WA");
-  const [to, setTo] = useState("Portland, OR");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
   const [tripLength, setTripLength] = useState("Weekend");
   const [budget, setBudget] = useState("$$");
   const [mode, setMode] = useState("Car");
 
   const handlePlanTrip = () => {
-    navigate("/plan");
+    if (!from.trim() || !to.trim()) return;
+    navigate("/plan", { state: { from: from.trim(), to: to.trim(), days: tripLength, budget, mode } });
   };
 
   return (
