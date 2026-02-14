@@ -15,6 +15,7 @@ export default function TripWorkspace() {
   const [highlightedStop, setHighlightedStop] = useState<string | null>(null);
   const [itinerary, setItinerary] = useState<DayPlan[] | null>(null);
   const [showMap, setShowMap] = useState(!isMobile);
+  const [focusedDay, setFocusedDay] = useState<number | null>(null);
 
   const tripConfig: TripConfig = location.state || { from: "Unknown", to: "Unknown", days: "Weekend", budget: "$$", mode: "Car" };
 
@@ -57,17 +58,18 @@ export default function TripWorkspace() {
                 onHighlightStop={setHighlightedStop}
                 highlightedStop={highlightedStop}
                 onItineraryReady={setItinerary}
+                onDayClick={setFocusedDay}
               />
             </div>
             <div className="flex-1">
-              <TripMap itinerary={itinerary} highlightedStop={highlightedStop} onHighlightStop={setHighlightedStop} />
+              <TripMap itinerary={itinerary} highlightedStop={highlightedStop} onHighlightStop={setHighlightedStop} focusedDay={focusedDay} onResetFocus={() => setFocusedDay(null)} />
             </div>
           </>
         ) : (
           <>
             {showMap ? (
               <div className="flex-1">
-                <TripMap itinerary={itinerary} highlightedStop={highlightedStop} onHighlightStop={setHighlightedStop} />
+                <TripMap itinerary={itinerary} highlightedStop={highlightedStop} onHighlightStop={setHighlightedStop} focusedDay={focusedDay} onResetFocus={() => setFocusedDay(null)} />
               </div>
             ) : (
               <div className="flex-1 overflow-hidden">
@@ -76,6 +78,7 @@ export default function TripWorkspace() {
                   onHighlightStop={setHighlightedStop}
                   highlightedStop={highlightedStop}
                   onItineraryReady={setItinerary}
+                  onDayClick={(day) => { setFocusedDay(day); setShowMap(true); }}
                 />
               </div>
             )}

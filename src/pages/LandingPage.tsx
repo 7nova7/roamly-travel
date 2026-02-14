@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Car, Bike, Truck, DollarSign, ArrowRight } from "lucide-react";
+import { Car, Plane, TrainFront, DollarSign, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RoamlyLogo } from "@/components/RoamlyLogo";
@@ -9,9 +9,9 @@ import { PlacesAutocomplete } from "@/components/PlacesAutocomplete";
 
 const tripLengths = ["Day trip", "Weekend", "Full week", "Custom"];
 const travelModes = [
+  { icon: Plane, label: "Plane" },
   { icon: Car, label: "Car" },
-  { icon: Truck, label: "RV" },
-  { icon: Bike, label: "Motorcycle" },
+  { icon: TrainFront, label: "Train" },
 ];
 
 export default function LandingPage() {

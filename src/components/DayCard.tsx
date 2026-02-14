@@ -6,9 +6,10 @@ interface DayCardProps {
   day: DayPlan;
   onHighlightStop: (stopId: string | null) => void;
   highlightedStop: string | null;
+  onDayClick?: (dayNumber: number) => void;
 }
 
-export function DayCard({ day, onHighlightStop, highlightedStop }: DayCardProps) {
+export function DayCard({ day, onHighlightStop, highlightedStop, onDayClick }: DayCardProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 15 }}
@@ -17,14 +18,19 @@ export function DayCard({ day, onHighlightStop, highlightedStop }: DayCardProps)
       className="bg-card rounded-2xl border border-border/60 shadow-sm overflow-hidden hover:shadow-md transition-shadow"
     >
       {/* Header */}
-      <div className="px-4 py-3 border-b border-border/40 flex items-center gap-3" style={{ borderLeftWidth: 4, borderLeftColor: day.color }}>
+      <div
+        onClick={() => onDayClick?.(day.day)}
+        className="px-4 py-3 border-b border-border/40 flex items-center gap-3 cursor-pointer hover:bg-secondary/30 transition-colors"
+        style={{ borderLeftWidth: 4, borderLeftColor: day.color }}
+      >
         <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-body font-bold text-primary-foreground" style={{ background: day.color }}>
           {day.day}
         </div>
-        <div>
+        <div className="flex-1">
           <h3 className="font-body font-semibold text-sm text-foreground">Day {day.day} — {day.title}</h3>
           <p className="text-xs text-muted-foreground font-body">{day.subtitle}</p>
         </div>
+        <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
       </div>
 
       {/* Stops timeline */}

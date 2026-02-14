@@ -20,9 +20,10 @@ interface ChatPanelProps {
   onHighlightStop: (stopId: string | null) => void;
   highlightedStop: string | null;
   onItineraryReady: (itinerary: DayPlan[]) => void;
+  onDayClick?: (dayNumber: number) => void;
 }
 
-export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItineraryReady }: ChatPanelProps) {
+export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItineraryReady, onDayClick }: ChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [phase, setPhase] = useState(0);
   const [isTyping, setIsTyping] = useState(false);
@@ -220,7 +221,7 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
               {msg.type === "itinerary" && generatedItinerary && (
                 <div className="w-full space-y-4">
                   {generatedItinerary.map(day => (
-                    <DayCard key={day.day} day={day} onHighlightStop={onHighlightStop} highlightedStop={highlightedStop} />
+                    <DayCard key={day.day} day={day} onHighlightStop={onHighlightStop} highlightedStop={highlightedStop} onDayClick={onDayClick} />
                   ))}
                 </div>
               )}
@@ -309,17 +310,50 @@ function LoadingAnimation() {
 }
 
 function ActionChips({ onAction }: { onAction: (action: string) => void }) {
+  const [showInput, setShowInput] = useState(false);
+  const [customText, setCustomText] = useState("");
+
+  const handleCustomSubmit = () => {
+    if (!customText.trim()) return;
+    onAction(customText.trim());
+    setCustomText("");
+    setShowInput(false);
+  };
+
   return (
-    <div className="w-full max-w-[85%] flex flex-wrap gap-2">
-      {["Add more stops", "Make it more relaxed", "Swap Day 1 and 2", "Find restaurants near stops"].map(action => (
+    <div className="w-full max-w-[85%] space-y-2">
+      <div className="flex flex-wrap gap-2">
+        {["Add more stops", "Make it more relaxed", "Swap Day 1 and 2", "Find restaurants near stops"].map(action => (
+          <button
+            key={action}
+            onClick={() => onAction(action)}
+            className="px-3 py-1.5 rounded-full text-xs font-body font-medium bg-secondary text-secondary-foreground hover:bg-accent hover:text-accent-foreground transition-all border border-border/50"
+          >
+            {action}
+          </button>
+        ))}
         <button
-          key={action}
-          onClick={() => onAction(action)}
-          className="px-3 py-1.5 rounded-full text-xs font-body font-medium bg-secondary text-secondary-foreground hover:bg-accent hover:text-accent-foreground transition-all border border-border/50"
+          onClick={() => setShowInput(!showInput)}
+          className="px-3 py-1.5 rounded-full text-xs font-body font-medium bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-all border border-border border-dashed"
         >
-          {action}
+          ✏️ Something else...
         </button>
-      ))}
+      </div>
+      {showInput && (
+        <div className="flex gap-2 mt-1">
+          <input
+            value={customText}
+            onChange={e => setCustomText(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && handleCustomSubmit()}
+            placeholder="Tell me what to change..."
+            className="flex-1 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-body focus:outline-none focus:ring-2 focus:ring-ring"
+            autoFocus
+          />
+          <Button onClick={handleCustomSubmit} size="icon" className="rounded-xl bg-accent text-accent-foreground hover:bg-accent/90 shrink-0">
+            <Send className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
