@@ -1,84 +1,91 @@
 
 
-# Roamly Enhancements: Travel Modes, Map Zoom on Day Click, and Free-Text Chat
+# Destination Detail Panel (Mindtrip-style)
 
 ## Overview
-Three changes: (1) replace Car/RV/Motorcycle travel modes with Plane/Car/Train and have the AI estimate real travel costs per mode, (2) clicking a day card zooms the map to that day's stops, and (3) add a "Something else" chip + text input after action chips so users can type custom adjustment requests.
+Add an interactive destination detail panel that slides open when a user clicks on any stop/city in the itinerary or on a map marker. The panel displays rich, AI-generated information about that destination organized into tabs: Overview, Restaurants, Hotels, Things to Do, and Location.
 
 ---
 
-## 1. Travel Modes: Plane, Car, Train with Cost Estimates
+## How It Works
 
-### LandingPage.tsx
-- Replace the `travelModes` array: swap `Car`/`Truck`/`Motorcycle` for `Plane`/`Car`/`Train`
-- Use lucide icons: `Plane`, `Car`, `TrainFront`
-- Default selection stays "Car"
-
-### Edge Function (generate-itinerary)
-- Update the system prompt to instruct the AI to research and include realistic cost estimates for the selected travel mode
-- Add to prompt: "For the travel mode '{mode}', include realistic estimated costs based on current typical pricing (e.g., average flight prices between cities, gas costs for driving distance, train ticket estimates). Break down travel costs in the day's estimatedCost field."
-- The AI will factor mode into driving/travel time labels (e.g., "2h flight" vs "6h drive" vs "4h train")
+When a user clicks a stop name in a DayCard or clicks a marker on the map, a slide-over panel opens on the right side (replacing/overlaying the map area on desktop, or as a full-screen sheet on mobile). The panel calls an AI edge function to generate real, detailed information about that specific place/city.
 
 ---
 
-## 2. Click Day Card to Zoom Map
+## 1. New Edge Function: `get-destination-details`
 
-### New Prop: `onDayClick`
-- Add `onDayClick: (dayNumber: number) => void` callback flowing from TripWorkspace through ChatPanel to DayCard
-- TripMap exposes a `zoomToDay` method (via a new prop or ref callback)
+Creates a new backend function that takes a city/place name and returns structured data across categories:
+
+- **Overview**: City description, best time to visit, known-for highlights, safety tips
+- **Restaurants**: 6 restaurant recommendations with name, cuisine type, price range, rating, short description
+- **Hotels/Stays**: 6 hotel recommendations with name, star rating, price range, neighborhood, short description
+- **Things to Do**: 6 attraction/activity recommendations with name, category, rating, price, short description
+- **Location**: Lat/lng for embedding a focused Google Map view
+
+Uses the Lovable AI gateway (same as itinerary generation) to produce real, research-based results.
+
+---
+
+## 2. New Component: `DestinationPanel`
+
+A slide-over panel component with:
+- **Header**: Destination name, region/country, close button
+- **Tabs** (using existing Radix Tabs): Overview | Restaurants | Stays | Things to Do | Location
+- **Loading state**: Skeleton placeholders while AI generates content
+- **Content cards**: Each tab shows a grid/list of cards with relevant info (name, rating stars, price range, short description)
+- **Location tab**: Renders a small focused Google Map centered on the destination
+
+Styled to match Roamly's existing design language (rounded cards, font-body, color scheme).
+
+---
+
+## 3. Integration Points
 
 ### DayCard.tsx
-- Make the day header clickable. When user clicks the day header bar, call `onDayClick(day.day)`
+- Make each stop name clickable (not just hover-able)
+- Clicking a stop name calls a new `onStopClick(stopName, lat, lng)` callback
 
 ### TripMap.tsx
-- Accept a new prop `focusedDay: number | null`
-- When `focusedDay` changes, compute the bounds of just that day's stops and call `map.fitBounds()` with those bounds (with some padding)
-- Add a "Show all" button overlay when zoomed into a single day, to reset to full trip bounds
+- Clicking a marker opens the destination panel for that stop (existing click handler currently opens an info window -- replace with panel trigger)
 
 ### TripWorkspace.tsx
-- Add `focusedDay` state, pass it down to both ChatPanel (-> DayCard) and TripMap
-- Wire `onDayClick` to set `focusedDay`, and a reset callback for the "Show all" button
+- Add state for the selected destination (`selectedStop: { name, lat, lng } | null`)
+- Pass it down to the new DestinationPanel
+- Layout: panel overlays the map area when open (desktop), or opens as a sheet (mobile)
 
----
-
-## 3. "Something Else" Free-Text Chat Input
-
-### ChatPanel.tsx - ActionChips Component
-- Add a 5th chip: "Something else..." styled distinctly (e.g., outlined instead of filled)
-- When clicked, show a text input below the chips where the user can type a custom adjustment request
-- On submit (Enter or send button), treat it like any other action chip: add as user message, call `generateItinerary` with their text as the `adjustmentRequest`
-- After each adjustment completes, the action chips (including "Something else") reappear, allowing unlimited back-and-forth
-
-### Flow
-```text
-[Action Chips: "Add more stops" | "Make it more relaxed" | "Swap Day 1 and 2" | "Find restaurants" | "Something else..."]
-                                                                                                          |
-                                                                                                    (click)
-                                                                                                          v
-                                                                                            [Text input appears]
-                                                                                            User types: "Add a beach day"
-                                                                                                          |
-                                                                                                    (submit)
-                                                                                                          v
-                                                                                            AI adjusts itinerary
-                                                                                                          v
-                                                                                            [Action chips reappear]
-```
+### ChatPanel.tsx
+- Pass through the new `onStopClick` prop to DayCard
 
 ---
 
 ## Technical Details
 
-### Files Modified
+### New Files
+
+| File | Purpose |
+|------|---------|
+| `src/components/DestinationPanel.tsx` | The tabbed destination detail panel component |
+| `supabase/functions/get-destination-details/index.ts` | AI edge function to generate destination info |
+
+### Modified Files
 
 | File | Change |
 |------|--------|
-| `src/pages/LandingPage.tsx` | Replace travel mode options with Plane/Car/Train |
-| `src/components/ChatPanel.tsx` | Add "Something else" chip with text input; pass `onDayClick` through to DayCard |
-| `src/components/DayCard.tsx` | Add `onDayClick` prop, make day header clickable |
-| `src/components/TripMap.tsx` | Add `focusedDay` prop with zoom-to-day and "Show all" button |
-| `src/pages/TripWorkspace.tsx` | Add `focusedDay` state, wire day click and reset callbacks |
-| `supabase/functions/generate-itinerary/index.ts` | Update system prompt to include travel-mode-specific cost estimates |
+| `src/components/DayCard.tsx` | Add `onStopClick` callback on stop name click |
+| `src/components/TripMap.tsx` | Replace info window click with destination panel trigger |
+| `src/pages/TripWorkspace.tsx` | Add `selectedStop` state, render DestinationPanel overlay |
+| `src/components/ChatPanel.tsx` | Pass `onStopClick` through to DayCard |
+
+### AI Response Schema (get-destination-details)
+
+The edge function returns structured JSON with:
+- `overview`: `{ description, bestTimeToVisit, knownFor: string[], safetyTips: string }`
+- `restaurants`: `[{ name, cuisine, priceRange, rating, description }]`
+- `stays`: `[{ name, type, priceRange, rating, neighborhood, description }]`
+- `thingsToDo`: `[{ name, category, price, rating, description }]`
+- `location`: `{ lat, lng, formattedAddress }`
 
 ### No new dependencies needed
-- `Plane` and `TrainFront` icons already exist in lucide-react
+- Uses existing Radix Tabs, Framer Motion, Lucide icons, and Google Maps
+
