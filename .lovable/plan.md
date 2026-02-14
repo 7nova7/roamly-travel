@@ -1,94 +1,95 @@
-
-
-# Make Roamly AI-Powered with Real Trip Planning
+# Roamly Improvements: Google Maps, Budget Input, and Functional Action Chips
 
 ## Overview
-Replace the hardcoded Seattle-to-Portland demo with a real AI-powered flow. The landing page form will capture each user's unique trip details, pass them to the workspace, and an AI (via Lovable AI Gateway) will generate a personalized itinerary based on the user's inputs (origin, destination, interests, pace, must-sees).
+
+Three enhancements: (1) replace Leaflet with Google Maps and add Places Autocomplete to location inputs, (2) replace budget pill selectors with a dollar amount input, and (3) make the adjustment action chips functional so the experience continues past "Want me to adjust anything?"
 
 ---
 
-## What Changes
+## 1. Google Maps Integration
 
-### 1. Enable Lovable Cloud + Lovable AI
-- Set up Lovable Cloud (Supabase backend)
-- Create an edge function `generate-itinerary` that calls the Lovable AI Gateway
-- The edge function takes: origin, destination, trip length, budget, travel mode, interests, pace, and must-see spots
-- It returns a structured itinerary (JSON) using tool calling to ensure consistent output matching the `DayPlan[]` schema
-- Handle 429/402 errors and surface them to the user
+### API Key Setup --> AIzaSyD2_5rM437hdvl22M0akhWj20oohLwnB8g (use this)
 
-### 2. Pass Trip Inputs from Landing Page to Workspace
-- When user clicks "Plan My Trip", navigate to `/plan` with the form data (origin, destination, trip length, budget, mode) passed via URL search params or React Router state
-- The TripWorkspace reads these values instead of using `DEMO_TRIP`
-- The nav bar trip summary pill displays the actual user inputs
+- Google Maps JavaScript API keys are publishable (restricted by domain referrer, not secret)
+- Store the key in the codebase as a constant or pass it inline when loading the script
+- Ask the user to provide the key, then embed it in the app
 
-### 3. Rework ChatPanel to Use Real User Inputs
-- Remove all references to `DEMO_TRIP` and `DEMO_ITINERARY` from the chat flow
-- The greeting message uses the actual origin/destination from the user's form
-- After gathering interests, pace, and must-see spots, call the `generate-itinerary` edge function
-- Parse the AI response into `DayPlan[]` and render itinerary cards + map pins
-- The conversation ends at "Want me to adjust anything?" with action chips (no further interaction needed)
+### Replace Leaflet with Google Maps (TripMap.tsx)
 
-### 4. Edge Function: `generate-itinerary`
-- Non-streaming call using tool calling to extract structured output
-- System prompt instructs the AI to act as a road trip planner, generating a day-by-day itinerary with real place names, approximate coordinates, realistic hours/costs, and driving times
-- Uses `google/gemini-3-flash-preview` model
-- Tool schema matches the `DayPlan[]` interface (day number, title, subtitle, stops with lat/lng, times, descriptions, tags, costs, drive times)
+- Remove the `leaflet` dependency
+- Load the Google Maps JavaScript API dynamically
+- Recreate the same functionality: numbered colored markers per day, route polyline connecting stops, hover highlight sync, day-color legend, fit bounds
+- Use `google.maps.Map`, `google.maps.Marker` (or `AdvancedMarkerElement`), and `google.maps.Polyline`
 
-### 5. Update TripMap
-- Remove the import of `DEMO_ITINERARY` (it already receives itinerary via props)
-- Dynamically generate day colors for any number of days (not just 3)
+### Places Autocomplete on Landing Page (LandingPage.tsx)
 
-### 6. Clean Up demoTrip.ts
-- Keep the `DayPlan`, `Stop` interfaces, `INTEREST_OPTIONS`, and `PACE_OPTIONS`
-- Remove `DEMO_TRIP` and `DEMO_ITINERARY` constants (no longer needed)
+- Load the Google Places library alongside the Maps API
+- Replace the plain text inputs for "From" and "To" with autocomplete-enabled inputs
+- As the user types, a dropdown of place suggestions appears
+- On selection, store the formatted place name
+- Styled to match the existing Roamly design (custom dropdown appearance)
+
+### New Files
+
+- `src/lib/google-maps.ts` -- Helper to load the Google Maps script once, returns a promise
+
+---
+
+## 2. Budget: Dollar Value Input
+
+### LandingPage.tsx Changes
+
+- Remove the `budgets` array (`["$", "$$", "$$$", "No limit"]`) and pill selector
+- Replace with a number input field: label "Budget", placeholder "e.g. 500", with a "$" prefix icon
+- Store as a string like "$500" in the trip config
+- Update `TripConfig` interface to accept this format
+- The nav bar in TripWorkspace will display the actual dollar amount (e.g. "$500")
+
+---
+
+## 3. Functional Action Chips
+
+### ChatPanel.tsx Changes
+
+- Make the four action chips ("Add more stops", "Make it more relaxed", "Swap Day 1 and 2", "Find restaurants near stops") trigger a follow-up AI call
+- When clicked, add the action as a user message in chat, show typing indicator, then call the `generate-itinerary` edge function again with the modification instruction appended
+- The AI regenerates the itinerary with the adjustment applied
+- Replace the existing itinerary cards and map pins with the new result
+- Show "Want me to adjust anything?" again after each adjustment
+
+### Edge Function Update (generate-itinerary)
+
+- Add an optional `adjustmentRequest` parameter
+- If present, append it to the system prompt: "The user wants to adjust the existing itinerary: [request]. Modify accordingly while keeping the same structure."
+- Optionally pass the current itinerary as context so the AI can make targeted changes rather than generating from scratch
 
 ---
 
 ## Technical Details
 
-### Edge Function (`supabase/functions/generate-itinerary/index.ts`)
-
-```text
-Input: { from, to, days, budget, mode, interests[], pace, mustSees }
-Output: { itinerary: DayPlan[] }
-
-Uses Lovable AI Gateway with tool calling:
-- Tool name: "generate_itinerary"
-- Parameters schema matches DayPlan[] structure
-- Includes lat/lng for map pins
-- Includes realistic stop data (hours, costs, drive times)
-```
-
-### Data Flow
-
-```text
-Landing Page Form
-    |
-    | (navigate with state: { from, to, days, budget, mode })
-    v
-TripWorkspace
-    |
-    | (passes trip config to ChatPanel)
-    v
-ChatPanel
-    |
-    | Phase 1: Collects interests, pace, must-sees via chat UI
-    | Phase 2: Calls edge function with all inputs
-    | Phase 3: Renders AI-generated itinerary cards
-    v
-TripMap (receives itinerary via props, renders pins + route)
-```
-
 ### Files Modified
-- `src/data/demoTrip.ts` -- Remove DEMO_TRIP and DEMO_ITINERARY, keep interfaces and option arrays
-- `src/pages/LandingPage.tsx` -- Pass form state via navigation
-- `src/pages/TripWorkspace.tsx` -- Read trip config from navigation state, pass to ChatPanel, update nav bar
-- `src/components/ChatPanel.tsx` -- Accept trip config as props, call edge function instead of using hardcoded data, render AI-generated itinerary
-- `src/components/TripMap.tsx` -- Remove DEMO_ITINERARY import, support dynamic day count
-- `supabase/functions/generate-itinerary/index.ts` -- New edge function calling Lovable AI
 
-### Error Handling
-- Show toast if AI call fails (network error, 429, 402)
-- Fallback message in chat: "Sorry, I couldn't generate your itinerary. Please try again."
-- Loading state with the existing route-drawing animation during AI generation
 
+| File                                             | Change                                                                    |
+| ------------------------------------------------ | ------------------------------------------------------------------------- |
+| `src/components/TripMap.tsx`                     | Replace Leaflet with Google Maps API                                      |
+| `src/pages/LandingPage.tsx`                      | Add Places Autocomplete to inputs, replace budget pills with dollar input |
+| `src/components/ChatPanel.tsx`                   | Make action chips functional with follow-up AI calls                      |
+| `src/data/demoTrip.ts`                           | No changes needed (TripConfig.budget already a string)                    |
+| `src/pages/TripWorkspace.tsx`                    | Minor update to display budget as dollar amount in nav pill               |
+| `supabase/functions/generate-itinerary/index.ts` | Add adjustmentRequest + current itinerary context support                 |
+| `package.json`                                   | Remove `leaflet` and `@types/leaflet`, add `@types/google.maps`           |
+
+
+### New Files
+
+
+| File                     | Purpose                                      |
+| ------------------------ | -------------------------------------------- |
+| `src/lib/google-maps.ts` | Script loader utility for Google Maps JS API |
+
+
+### Dependency Changes
+
+- Remove: `leaflet`, `@types/leaflet`
+- Add: `@types/google.maps` (for TypeScript types)
