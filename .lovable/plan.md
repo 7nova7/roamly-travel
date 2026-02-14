@@ -1,91 +1,66 @@
 
 
-# Destination Detail Panel (Mindtrip-style)
+# Elegant Map Markers with Names and Activity Icons
 
-## Overview
-Add an interactive destination detail panel that slides open when a user clicks on any stop/city in the itinerary or on a map marker. The panel displays rich, AI-generated information about that destination organized into tabs: Overview, Restaurants, Hotels, Things to Do, and Location.
+## What Changes
 
----
+Replace the current simple numbered circle markers on the map with rich, pill-shaped markers inspired by the Mindtrip reference screenshot. Each marker will display:
 
-## How It Works
+- A category icon (matching the stop's tags/activity type)
+- The stop name as a label
+- A colored accent dot indicating the day
 
-When a user clicks a stop name in a DayCard or clicks a marker on the map, a slide-over panel opens on the right side (replacing/overlaying the map area on desktop, or as a full-screen sheet on mobile). The panel calls an AI edge function to generate real, detailed information about that specific place/city.
-
----
-
-## 1. New Edge Function: `get-destination-details`
-
-Creates a new backend function that takes a city/place name and returns structured data across categories:
-
-- **Overview**: City description, best time to visit, known-for highlights, safety tips
-- **Restaurants**: 6 restaurant recommendations with name, cuisine type, price range, rating, short description
-- **Hotels/Stays**: 6 hotel recommendations with name, star rating, price range, neighborhood, short description
-- **Things to Do**: 6 attraction/activity recommendations with name, category, rating, price, short description
-- **Location**: Lat/lng for embedding a focused Google Map view
-
-Uses the Lovable AI gateway (same as itinerary generation) to produce real, research-based results.
+The markers will use Google Maps OverlayView (custom HTML overlays) instead of basic SVG Marker icons, enabling full HTML/CSS styling for a polished look.
 
 ---
 
-## 2. New Component: `DestinationPanel`
+## Visual Design
 
-A slide-over panel component with:
-- **Header**: Destination name, region/country, close button
-- **Tabs** (using existing Radix Tabs): Overview | Restaurants | Stays | Things to Do | Location
-- **Loading state**: Skeleton placeholders while AI generates content
-- **Content cards**: Each tab shows a grid/list of cards with relevant info (name, rating stars, price range, short description)
-- **Location tab**: Renders a small focused Google Map centered on the destination
+Each marker will be a white rounded pill with a subtle shadow, containing:
+- A small icon on the left (e.g., fork-knife for restaurants, camera for photo spots, mountain for hiking, landmark for museums, etc.)
+- The stop name text
+- On hover/highlight: slightly larger with a colored border matching the day color
 
-Styled to match Roamly's existing design language (rounded cards, font-body, color scheme).
-
----
-
-## 3. Integration Points
-
-### DayCard.tsx
-- Make each stop name clickable (not just hover-able)
-- Clicking a stop name calls a new `onStopClick(stopName, lat, lng)` callback
-
-### TripMap.tsx
-- Clicking a marker opens the destination panel for that stop (existing click handler currently opens an info window -- replace with panel trigger)
-
-### TripWorkspace.tsx
-- Add state for the selected destination (`selectedStop: { name, lat, lng } | null`)
-- Pass it down to the new DestinationPanel
-- Layout: panel overlays the map area when open (desktop), or opens as a sheet (mobile)
-
-### ChatPanel.tsx
-- Pass through the new `onStopClick` prop to DayCard
+```
+ [icon]  Stop Name
+```
 
 ---
 
 ## Technical Details
 
-### New Files
+### Icon Mapping Logic
 
-| File | Purpose |
-|------|---------|
-| `src/components/DestinationPanel.tsx` | The tabbed destination detail panel component |
-| `supabase/functions/get-destination-details/index.ts` | AI edge function to generate destination info |
+A helper function maps stop tags (e.g., "Food & Drink", "Hiking & Nature", "History & Culture") to appropriate Unicode/SVG icons:
+
+| Tag | Icon |
+|-----|------|
+| Food & Drink | fork-knife symbol |
+| Hiking & Nature | mountain/tree symbol |
+| History & Culture | landmark/columns symbol |
+| Art & Music | palette symbol |
+| Photography Spots | camera symbol |
+| Adventure Sports | climbing symbol |
+| Shopping | bag symbol |
+| Scenic Drives | car symbol |
+| Default | map-pin symbol |
+
+### Replacing Markers with Custom Overlays
+
+**`src/components/TripMap.tsx`** will be updated:
+
+1. Replace `google.maps.Marker` with `google.maps.OverlayView` custom class
+2. Each overlay renders a styled HTML div (white pill, shadow, icon + name)
+3. The `buildIcon` function is replaced with a `createMarkerOverlay` function that returns an OverlayView instance
+4. Highlight state changes the border color and slightly scales the marker
+5. Click and hover handlers are attached to the HTML element directly
 
 ### Modified Files
 
 | File | Change |
 |------|--------|
-| `src/components/DayCard.tsx` | Add `onStopClick` callback on stop name click |
-| `src/components/TripMap.tsx` | Replace info window click with destination panel trigger |
-| `src/pages/TripWorkspace.tsx` | Add `selectedStop` state, render DestinationPanel overlay |
-| `src/components/ChatPanel.tsx` | Pass `onStopClick` through to DayCard |
+| `src/components/TripMap.tsx` | Replace Marker-based rendering with custom OverlayView HTML markers; add tag-to-icon mapping; update highlight logic to change overlay styles |
 
-### AI Response Schema (get-destination-details)
-
-The edge function returns structured JSON with:
-- `overview`: `{ description, bestTimeToVisit, knownFor: string[], safetyTips: string }`
-- `restaurants`: `[{ name, cuisine, priceRange, rating, description }]`
-- `stays`: `[{ name, type, priceRange, rating, neighborhood, description }]`
-- `thingsToDo`: `[{ name, category, price, rating, description }]`
-- `location`: `{ lat, lng, formattedAddress }`
-
-### No new dependencies needed
-- Uses existing Radix Tabs, Framer Motion, Lucide icons, and Google Maps
-
+### No new dependencies
+- Uses native Google Maps OverlayView API
+- Icons rendered as inline SVG paths (from Lucide icon set, embedded as simple path data to avoid React dependency in the overlay HTML)
