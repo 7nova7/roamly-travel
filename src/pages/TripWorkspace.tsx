@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { RoamlyLogo } from "@/components/RoamlyLogo";
 import { ChatPanel } from "@/components/ChatPanel";
 import { TripMap } from "@/components/TripMap";
+import { DestinationPanel } from "@/components/DestinationPanel";
 import { type DayPlan, type TripConfig } from "@/data/demoTrip";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -16,6 +17,11 @@ export default function TripWorkspace() {
   const [itinerary, setItinerary] = useState<DayPlan[] | null>(null);
   const [showMap, setShowMap] = useState(!isMobile);
   const [focusedDay, setFocusedDay] = useState<number | null>(null);
+  const [selectedStop, setSelectedStop] = useState<{ name: string; lat: number; lng: number } | null>(null);
+
+  const handleStopClick = (name: string, lat: number, lng: number) => {
+    setSelectedStop({ name, lat, lng });
+  };
 
   const tripConfig: TripConfig = location.state || { from: "Unknown", to: "Unknown", days: "Weekend", budget: "$$", mode: "Car" };
 
@@ -59,17 +65,20 @@ export default function TripWorkspace() {
                 highlightedStop={highlightedStop}
                 onItineraryReady={setItinerary}
                 onDayClick={setFocusedDay}
+                onStopClick={handleStopClick}
               />
             </div>
-            <div className="flex-1">
-              <TripMap itinerary={itinerary} highlightedStop={highlightedStop} onHighlightStop={setHighlightedStop} focusedDay={focusedDay} onResetFocus={() => setFocusedDay(null)} />
+            <div className="flex-1 relative">
+              <TripMap itinerary={itinerary} highlightedStop={highlightedStop} onHighlightStop={setHighlightedStop} focusedDay={focusedDay} onResetFocus={() => setFocusedDay(null)} onStopClick={handleStopClick} />
+              <DestinationPanel stop={selectedStop} onClose={() => setSelectedStop(null)} />
             </div>
           </>
         ) : (
           <>
             {showMap ? (
-              <div className="flex-1">
-                <TripMap itinerary={itinerary} highlightedStop={highlightedStop} onHighlightStop={setHighlightedStop} focusedDay={focusedDay} onResetFocus={() => setFocusedDay(null)} />
+              <div className="flex-1 relative">
+                <TripMap itinerary={itinerary} highlightedStop={highlightedStop} onHighlightStop={setHighlightedStop} focusedDay={focusedDay} onResetFocus={() => setFocusedDay(null)} onStopClick={handleStopClick} />
+                <DestinationPanel stop={selectedStop} onClose={() => setSelectedStop(null)} />
               </div>
             ) : (
               <div className="flex-1 overflow-hidden">
@@ -79,6 +88,7 @@ export default function TripWorkspace() {
                   highlightedStop={highlightedStop}
                   onItineraryReady={setItinerary}
                   onDayClick={(day) => { setFocusedDay(day); setShowMap(true); }}
+                  onStopClick={(name, lat, lng) => { handleStopClick(name, lat, lng); setShowMap(true); }}
                 />
               </div>
             )}

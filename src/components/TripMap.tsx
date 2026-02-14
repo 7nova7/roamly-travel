@@ -8,11 +8,12 @@ interface TripMapProps {
   onHighlightStop: (stopId: string | null) => void;
   focusedDay: number | null;
   onResetFocus: () => void;
+  onStopClick?: (name: string, lat: number, lng: number) => void;
 }
 
 const DAY_COLORS = ["#1B4332", "#2563EB", "#F4A261", "#D6336C", "#6D28D9", "#0D9488", "#EAB308"];
 
-export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDay, onResetFocus }: TripMapProps) {
+export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDay, onResetFocus, onStopClick }: TripMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<any>(null);
   const markersRef = useRef<{ [key: string]: any }>({});
@@ -81,11 +82,10 @@ export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDa
         marker.addListener("mouseover", () => onHighlightStop(stop.id));
         marker.addListener("mouseout", () => onHighlightStop(null));
 
-        // Info window
-        const infoWindow = new gm.InfoWindow({
-          content: `<div style="font-family:'Plus Jakarta Sans',sans-serif;padding:2px 4px"><strong>${stop.name}</strong><br/><span style="color:#666;font-size:12px">${stop.time}</span></div>`,
+        // Click opens destination panel instead of info window
+        marker.addListener("click", () => {
+          onStopClick?.(stop.name, stop.lat, stop.lng);
         });
-        marker.addListener("click", () => infoWindow.open(map, marker));
 
         markersRef.current[stop.id] = marker;
         stopNum++;
