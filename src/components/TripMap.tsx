@@ -6,11 +6,13 @@ interface TripMapProps {
   itinerary: DayPlan[] | null;
   highlightedStop: string | null;
   onHighlightStop: (stopId: string | null) => void;
+  focusedDay: number | null;
+  onResetFocus: () => void;
 }
 
 const DAY_COLORS = ["#1B4332", "#2563EB", "#F4A261", "#D6336C", "#6D28D9", "#0D9488", "#EAB308"];
 
-export function TripMap({ itinerary, highlightedStop, onHighlightStop }: TripMapProps) {
+export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDay, onResetFocus }: TripMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<any>(null);
   const markersRef = useRef<{ [key: string]: any }>({});
@@ -108,6 +110,27 @@ export function TripMap({ itinerary, highlightedStop, onHighlightStop }: TripMap
     }
   }, [itinerary, onHighlightStop]);
 
+  // Zoom to focused day
+  useEffect(() => {
+    const map = mapInstance.current;
+    if (!map || !itinerary) return;
+    const gm = (window as any).google.maps;
+
+    if (focusedDay !== null) {
+      const day = itinerary.find(d => d.day === focusedDay);
+      if (day && day.stops.length > 0) {
+        const bounds = new gm.LatLngBounds();
+        day.stops.forEach(stop => bounds.extend({ lat: stop.lat, lng: stop.lng }));
+        map.fitBounds(bounds, { top: 60, bottom: 60, left: 60, right: 60 });
+      }
+    } else {
+      // Reset to full bounds
+      const bounds = new gm.LatLngBounds();
+      itinerary.forEach(day => day.stops.forEach(stop => bounds.extend({ lat: stop.lat, lng: stop.lng })));
+      if (!bounds.isEmpty()) map.fitBounds(bounds, { top: 40, bottom: 40, left: 40, right: 40 });
+    }
+  }, [focusedDay, itinerary]);
+
   // Highlight
   useEffect(() => {
     if (!itinerary) return;
@@ -139,6 +162,14 @@ export function TripMap({ itinerary, highlightedStop, onHighlightStop }: TripMap
               </div>
             ))}
           </div>
+          {focusedDay !== null && (
+            <button
+              onClick={onResetFocus}
+              className="mt-2 text-[10px] font-body font-medium text-accent hover:underline"
+            >
+              ← Show all days
+            </button>
+          )}
         </div>
       )}
       {!itinerary && (

@@ -31,7 +31,7 @@ serve(async (req) => {
 
     const daysNum = typeof days === "number" ? days : parseDays(days);
 
-    let systemPrompt = `You are an expert road trip planner. Generate a detailed day-by-day road trip itinerary.
+    let systemPrompt = `You are an expert travel planner. Generate a detailed day-by-day trip itinerary.
 
 Trip details:
 - From: ${from}
@@ -45,15 +45,24 @@ Trip details:
 
 Requirements:
 - Use REAL place names, addresses, and approximate GPS coordinates (lat/lng)
-- Include realistic opening hours, costs, and driving times between stops
+- Include realistic opening hours, costs, and travel times between stops
 - Cluster nearby stops together for efficiency
 - Order stops around opening hours
 - Match the number of stops per day to the pace preference
 - Include a mix of activities matching the user's interests
 - Each stop needs a unique id (format: d{day}s{stopNum}, e.g. "d1s1")
 - Assign appropriate tags to each stop (e.g. "Nature", "Food", "Free", "Historic", "Must-see")
-- Make driving time estimates realistic
-- Include an estimated total cost per day`;
+- Make travel time estimates realistic for the chosen mode
+- Include an estimated total cost per day
+
+TRAVEL MODE COST ESTIMATION:
+- For "${mode}" travel mode, use realistic cost estimates based on current typical pricing:
+  - If Plane: estimate average flight ticket prices between cities (economy class), include airport transfer costs
+  - If Car: estimate fuel costs based on distance and average fuel prices, plus tolls and parking
+  - If Train: estimate train ticket prices between cities based on typical rail fares
+- The "driveFromPrev" field should reflect the travel mode (e.g. "2h flight", "4h 30m drive", "3h train")
+- The "estimatedCost" per day should include both travel costs and activity costs
+- Factor the travel mode into how stops are structured (flying between distant cities vs driving through towns)`;
 
     if (adjustmentRequest) {
       systemPrompt += `\n\nIMPORTANT ADJUSTMENT REQUEST: The user wants to modify the existing itinerary: "${adjustmentRequest}". Apply this adjustment while keeping the same general structure and real place data. Make targeted changes rather than regenerating everything from scratch.`;
