@@ -1,67 +1,69 @@
-# Roamly Improvements: Google Maps, Budget Input, and Functional Action Chips
+
+
+# Roamly Enhancements: Travel Modes, Map Zoom on Day Click, and Free-Text Chat
 
 ## Overview
-
-Three enhancements: (1) replace Leaflet with Google Maps and add Places Autocomplete to location inputs, (2) replace budget pill selectors with a dollar amount input, and (3) make the adjustment action chips functional so the experience continues past "Want me to adjust anything?"
-
----
-
-## 1. Google Maps Integration
-
-### API Key Setup --> AIzaSyD2_5rM437hdvl22M0akhWj20oohLwnB8g (use this)
-
-- Google Maps JavaScript API keys are publishable (restricted by domain referrer, not secret)
-- Store the key in the codebase as a constant or pass it inline when loading the script
-- Ask the user to provide the key, then embed it in the app
-
-### Replace Leaflet with Google Maps (TripMap.tsx)
-
-- Remove the `leaflet` dependency
-- Load the Google Maps JavaScript API dynamically
-- Recreate the same functionality: numbered colored markers per day, route polyline connecting stops, hover highlight sync, day-color legend, fit bounds
-- Use `google.maps.Map`, `google.maps.Marker` (or `AdvancedMarkerElement`), and `google.maps.Polyline`
-
-### Places Autocomplete on Landing Page (LandingPage.tsx)
-
-- Load the Google Places library alongside the Maps API
-- Replace the plain text inputs for "From" and "To" with autocomplete-enabled inputs
-- As the user types, a dropdown of place suggestions appears
-- On selection, store the formatted place name
-- Styled to match the existing Roamly design (custom dropdown appearance)
-
-### New Files
-
-- `src/lib/google-maps.ts` -- Helper to load the Google Maps script once, returns a promise
+Three changes: (1) replace Car/RV/Motorcycle travel modes with Plane/Car/Train and have the AI estimate real travel costs per mode, (2) clicking a day card zooms the map to that day's stops, and (3) add a "Something else" chip + text input after action chips so users can type custom adjustment requests.
 
 ---
 
-## 2. Budget: Dollar Value Input
+## 1. Travel Modes: Plane, Car, Train with Cost Estimates
 
-### LandingPage.tsx Changes
+### LandingPage.tsx
+- Replace the `travelModes` array: swap `Car`/`Truck`/`Motorcycle` for `Plane`/`Car`/`Train`
+- Use lucide icons: `Plane`, `Car`, `TrainFront`
+- Default selection stays "Car"
 
-- Remove the `budgets` array (`["$", "$$", "$$$", "No limit"]`) and pill selector
-- Replace with a number input field: label "Budget", placeholder "e.g. 500", with a "$" prefix icon
-- Store as a string like "$500" in the trip config
-- Update `TripConfig` interface to accept this format
-- The nav bar in TripWorkspace will display the actual dollar amount (e.g. "$500")
+### Edge Function (generate-itinerary)
+- Update the system prompt to instruct the AI to research and include realistic cost estimates for the selected travel mode
+- Add to prompt: "For the travel mode '{mode}', include realistic estimated costs based on current typical pricing (e.g., average flight prices between cities, gas costs for driving distance, train ticket estimates). Break down travel costs in the day's estimatedCost field."
+- The AI will factor mode into driving/travel time labels (e.g., "2h flight" vs "6h drive" vs "4h train")
 
 ---
 
-## 3. Functional Action Chips
+## 2. Click Day Card to Zoom Map
 
-### ChatPanel.tsx Changes
+### New Prop: `onDayClick`
+- Add `onDayClick: (dayNumber: number) => void` callback flowing from TripWorkspace through ChatPanel to DayCard
+- TripMap exposes a `zoomToDay` method (via a new prop or ref callback)
 
-- Make the four action chips ("Add more stops", "Make it more relaxed", "Swap Day 1 and 2", "Find restaurants near stops") trigger a follow-up AI call
-- When clicked, add the action as a user message in chat, show typing indicator, then call the `generate-itinerary` edge function again with the modification instruction appended
-- The AI regenerates the itinerary with the adjustment applied
-- Replace the existing itinerary cards and map pins with the new result
-- Show "Want me to adjust anything?" again after each adjustment
+### DayCard.tsx
+- Make the day header clickable. When user clicks the day header bar, call `onDayClick(day.day)`
 
-### Edge Function Update (generate-itinerary)
+### TripMap.tsx
+- Accept a new prop `focusedDay: number | null`
+- When `focusedDay` changes, compute the bounds of just that day's stops and call `map.fitBounds()` with those bounds (with some padding)
+- Add a "Show all" button overlay when zoomed into a single day, to reset to full trip bounds
 
-- Add an optional `adjustmentRequest` parameter
-- If present, append it to the system prompt: "The user wants to adjust the existing itinerary: [request]. Modify accordingly while keeping the same structure."
-- Optionally pass the current itinerary as context so the AI can make targeted changes rather than generating from scratch
+### TripWorkspace.tsx
+- Add `focusedDay` state, pass it down to both ChatPanel (-> DayCard) and TripMap
+- Wire `onDayClick` to set `focusedDay`, and a reset callback for the "Show all" button
+
+---
+
+## 3. "Something Else" Free-Text Chat Input
+
+### ChatPanel.tsx - ActionChips Component
+- Add a 5th chip: "Something else..." styled distinctly (e.g., outlined instead of filled)
+- When clicked, show a text input below the chips where the user can type a custom adjustment request
+- On submit (Enter or send button), treat it like any other action chip: add as user message, call `generateItinerary` with their text as the `adjustmentRequest`
+- After each adjustment completes, the action chips (including "Something else") reappear, allowing unlimited back-and-forth
+
+### Flow
+```text
+[Action Chips: "Add more stops" | "Make it more relaxed" | "Swap Day 1 and 2" | "Find restaurants" | "Something else..."]
+                                                                                                          |
+                                                                                                    (click)
+                                                                                                          v
+                                                                                            [Text input appears]
+                                                                                            User types: "Add a beach day"
+                                                                                                          |
+                                                                                                    (submit)
+                                                                                                          v
+                                                                                            AI adjusts itinerary
+                                                                                                          v
+                                                                                            [Action chips reappear]
+```
 
 ---
 
@@ -69,27 +71,14 @@ Three enhancements: (1) replace Leaflet with Google Maps and add Places Autocomp
 
 ### Files Modified
 
+| File | Change |
+|------|--------|
+| `src/pages/LandingPage.tsx` | Replace travel mode options with Plane/Car/Train |
+| `src/components/ChatPanel.tsx` | Add "Something else" chip with text input; pass `onDayClick` through to DayCard |
+| `src/components/DayCard.tsx` | Add `onDayClick` prop, make day header clickable |
+| `src/components/TripMap.tsx` | Add `focusedDay` prop with zoom-to-day and "Show all" button |
+| `src/pages/TripWorkspace.tsx` | Add `focusedDay` state, wire day click and reset callbacks |
+| `supabase/functions/generate-itinerary/index.ts` | Update system prompt to include travel-mode-specific cost estimates |
 
-| File                                             | Change                                                                    |
-| ------------------------------------------------ | ------------------------------------------------------------------------- |
-| `src/components/TripMap.tsx`                     | Replace Leaflet with Google Maps API                                      |
-| `src/pages/LandingPage.tsx`                      | Add Places Autocomplete to inputs, replace budget pills with dollar input |
-| `src/components/ChatPanel.tsx`                   | Make action chips functional with follow-up AI calls                      |
-| `src/data/demoTrip.ts`                           | No changes needed (TripConfig.budget already a string)                    |
-| `src/pages/TripWorkspace.tsx`                    | Minor update to display budget as dollar amount in nav pill               |
-| `supabase/functions/generate-itinerary/index.ts` | Add adjustmentRequest + current itinerary context support                 |
-| `package.json`                                   | Remove `leaflet` and `@types/leaflet`, add `@types/google.maps`           |
-
-
-### New Files
-
-
-| File                     | Purpose                                      |
-| ------------------------ | -------------------------------------------- |
-| `src/lib/google-maps.ts` | Script loader utility for Google Maps JS API |
-
-
-### Dependency Changes
-
-- Remove: `leaflet`, `@types/leaflet`
-- Add: `@types/google.maps` (for TypeScript types)
+### No new dependencies needed
+- `Plane` and `TrainFront` icons already exist in lucide-react
