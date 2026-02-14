@@ -19,9 +19,9 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const systemPrompt = `You are a concise travel guide. Given a destination, return real info with real names and prices. Keep descriptions to 1 sentence each. Be brief.`;
+    const systemPrompt = `Concise travel guide. Real names, real prices. 1 sentence descriptions. Be brief.`;
 
-    const userMessage = `Quick travel guide for "${name}" at ${lat},${lng}. Real places, brief descriptions.`;
+    const userMessage = `Travel guide: "${name}" (${lat},${lng}). Real places only.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -30,7 +30,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
+        model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userMessage },

@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { loadGoogleMaps } from "@/lib/google-maps";
+import { PhotoCarousel } from "@/components/destination/PhotoCarousel";
 
 interface DestinationDetails {
   overview: {
@@ -143,6 +144,8 @@ export function DestinationPanel({ stop, onClose }: DestinationPanelProps) {
           <div className="flex-1 overflow-y-auto custom-scrollbar px-4 pb-4">
             {/* Overview Tab */}
             <TabsContent value="overview" className="mt-3 space-y-4">
+              {/* Photo carousel loads independently */}
+              <PhotoCarousel stopName={stop.name} lat={stop.lat} lng={stop.lng} />
               {loading ? <OverviewSkeleton /> : details?.overview && (
                 <>
                   <p className="text-sm font-body text-foreground leading-relaxed whitespace-pre-line">{details.overview.description}</p>
