@@ -40,7 +40,7 @@ export function DayCard({ day, onHighlightStop, highlightedStop, onDayClick }: D
             {stop.driveFromPrev && (
               <div className="flex items-center gap-2 py-1.5 pl-6">
                 <Car className="w-3 h-3 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground font-body">{stop.driveFromPrev} drive</span>
+                <span className="text-xs text-muted-foreground font-body">{stop.driveFromPrev}</span>
               </div>
             )}
             <div
