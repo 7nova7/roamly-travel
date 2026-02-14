@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { DEMO_ITINERARY, type DayPlan } from "@/data/demoTrip";
+import { type DayPlan } from "@/data/demoTrip";
 
 interface TripMapProps {
   itinerary: DayPlan[] | null;
@@ -9,7 +9,7 @@ interface TripMapProps {
   onHighlightStop: (stopId: string | null) => void;
 }
 
-const DAY_COLORS = ["#1B4332", "#2563EB", "#F4A261"];
+const DAY_COLORS = ["#1B4332", "#2563EB", "#F4A261", "#D6336C", "#6D28D9", "#0D9488", "#EAB308"];
 
 function createNumberedIcon(num: number, color: string, highlighted: boolean) {
   return L.divIcon({

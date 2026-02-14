@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, X, Trash2, RefreshCw } from "lucide-react";
+import { Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TypingIndicator } from "@/components/TypingIndicator";
-import { DEMO_ITINERARY, INTEREST_OPTIONS, PACE_OPTIONS, DEMO_TRIP, type DayPlan } from "@/data/demoTrip";
+import { INTEREST_OPTIONS, PACE_OPTIONS, type DayPlan, type TripConfig } from "@/data/demoTrip";
 import { DayCard } from "./DayCard";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface ChatMessage {
   id: string;
@@ -14,17 +16,22 @@ interface ChatMessage {
 }
 
 interface ChatPanelProps {
+  tripConfig: TripConfig;
   onHighlightStop: (stopId: string | null) => void;
   highlightedStop: string | null;
   onItineraryReady: (itinerary: DayPlan[]) => void;
 }
 
-export function ChatPanel({ onHighlightStop, highlightedStop, onItineraryReady }: ChatPanelProps) {
+export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItineraryReady }: ChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [phase, setPhase] = useState(0);
   const [isTyping, setIsTyping] = useState(false);
   const [inputValue, setInputValue] = useState("");
+  const [generatedItinerary, setGeneratedItinerary] = useState<DayPlan[] | null>(null);
+  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
+  const [selectedPace, setSelectedPace] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
 
   const addBotMessage = useCallback((content: string, type: ChatMessage["type"] = "text", delay = 800) => {
     setIsTyping(true);
@@ -38,19 +45,18 @@ export function ChatPanel({ onHighlightStop, highlightedStop, onItineraryReady }
     setMessages(prev => [...prev, { id: `msg-${Date.now()}`, sender: "user", content, type: "text" }]);
   }, []);
 
-  // Scroll to bottom
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
     }
   }, [messages, isTyping]);
 
-  // Start conversation
+  // Start conversation with real trip data
   useEffect(() => {
     if (phase === 0) {
       setPhase(1);
       addBotMessage(
-        `Hey! 👋 I'm planning your ${DEMO_TRIP.days}-day trip from ${DEMO_TRIP.from} to ${DEMO_TRIP.to}. Before I build your itinerary, I want to make sure it's perfect for you.\n\nWhat kinds of experiences are you most into?`,
+        `Hey! 👋 I'm planning your ${tripConfig.days.toLowerCase()} trip from ${tripConfig.from} to ${tripConfig.to}. Before I build your itinerary, I want to make sure it's perfect for you.\n\nWhat kinds of experiences are you most into?`,
         "text",
         500
       );
@@ -58,9 +64,10 @@ export function ChatPanel({ onHighlightStop, highlightedStop, onItineraryReady }
         setMessages(prev => [...prev, { id: "interests", sender: "bot", content: "", type: "interests" }]);
       }, 1400);
     }
-  }, [phase, addBotMessage]);
+  }, [phase, addBotMessage, tripConfig]);
 
   const handleInterestSelect = (selected: string[]) => {
+    setSelectedInterests(selected);
     addUserMessage(selected.join(", "));
     setTimeout(() => {
       addBotMessage("Great taste! Now, how do you like your days?", "text", 600);
@@ -71,6 +78,7 @@ export function ChatPanel({ onHighlightStop, highlightedStop, onItineraryReady }
   };
 
   const handlePaceSelect = (pace: string) => {
+    setSelectedPace(pace);
     addUserMessage(pace);
     setTimeout(() => {
       addBotMessage("One more — any must-see spots you already have in mind? Drop them here and I'll build around them.", "text", 600);
@@ -81,32 +89,66 @@ export function ChatPanel({ onHighlightStop, highlightedStop, onItineraryReady }
     }, 300);
   };
 
-  const handleSpotsSubmit = () => {
-    const text = inputValue.trim() || "No specific spots — surprise me!";
-    addUserMessage(text);
+  const handleSpotsSubmit = async () => {
+    const mustSees = inputValue.trim() || "No specific spots — surprise me!";
+    addUserMessage(mustSees);
     setInputValue("");
+
     setTimeout(() => {
       addBotMessage("Perfect. Give me a moment to build something great... 🗺️", "text", 400);
       setTimeout(() => {
         setMessages(prev => [...prev, { id: "loading", sender: "bot", content: "", type: "loading" }]);
-        // After loading, show itinerary
-        setTimeout(() => {
-          setMessages(prev => prev.filter(m => m.id !== "loading"));
-          setMessages(prev => [...prev, { id: "itinerary", sender: "bot", content: "", type: "itinerary" }]);
-          onItineraryReady(DEMO_ITINERARY);
-          setTimeout(() => {
-            addBotMessage(
-              "Here's your optimized plan! I clustered nearby stops together and ordered everything around opening hours. Want me to adjust anything?",
-              "text",
-              600
-            );
-            setTimeout(() => {
-              setMessages(prev => [...prev, { id: "actions", sender: "bot", content: "", type: "actions" }]);
-            }, 1400);
-          }, 500);
-        }, 2500);
+        generateItinerary(mustSees);
       }, 1200);
     }, 300);
+  };
+
+  const generateItinerary = async (mustSees: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-itinerary", {
+        body: {
+          from: tripConfig.from,
+          to: tripConfig.to,
+          days: tripConfig.days,
+          budget: tripConfig.budget,
+          mode: tripConfig.mode,
+          interests: selectedInterests,
+          pace: selectedPace,
+          mustSees,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      const itinerary: DayPlan[] = data.itinerary;
+      setGeneratedItinerary(itinerary);
+
+      // Remove loading, show itinerary
+      setMessages(prev => prev.filter(m => m.id !== "loading"));
+      setMessages(prev => [...prev, { id: "itinerary", sender: "bot", content: "", type: "itinerary" }]);
+      onItineraryReady(itinerary);
+
+      setTimeout(() => {
+        addBotMessage(
+          "Here's your optimized plan! I clustered nearby stops together and ordered everything around opening hours. Want me to adjust anything?",
+          "text",
+          600
+        );
+        setTimeout(() => {
+          setMessages(prev => [...prev, { id: "actions", sender: "bot", content: "", type: "actions" }]);
+        }, 1400);
+      }, 500);
+    } catch (err: any) {
+      console.error("Itinerary generation failed:", err);
+      setMessages(prev => prev.filter(m => m.id !== "loading"));
+      addBotMessage("Sorry, I couldn't generate your itinerary. Please try again.", "text", 400);
+      toast({
+        title: "Generation failed",
+        description: err?.message || "Something went wrong. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -150,7 +192,7 @@ export function ChatPanel({ onHighlightStop, highlightedStop, onItineraryReady }
                       value={inputValue}
                       onChange={e => setInputValue(e.target.value)}
                       onKeyDown={e => e.key === "Enter" && handleSpotsSubmit()}
-                      placeholder="e.g., Multnomah Falls, Powell's Books..."
+                      placeholder="e.g., Golden Gate Bridge, Yosemite..."
                       className="flex-1 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-body focus:outline-none focus:ring-2 focus:ring-ring"
                     />
                     <Button onClick={handleSpotsSubmit} size="icon" className="rounded-xl bg-accent text-accent-foreground hover:bg-accent/90 shrink-0">
@@ -161,9 +203,9 @@ export function ChatPanel({ onHighlightStop, highlightedStop, onItineraryReady }
                 </div>
               )}
               {msg.type === "loading" && <LoadingAnimation />}
-              {msg.type === "itinerary" && (
+              {msg.type === "itinerary" && generatedItinerary && (
                 <div className="w-full space-y-4">
-                  {DEMO_ITINERARY.map(day => (
+                  {generatedItinerary.map(day => (
                     <DayCard key={day.day} day={day} onHighlightStop={onHighlightStop} highlightedStop={highlightedStop} />
                   ))}
                 </div>
