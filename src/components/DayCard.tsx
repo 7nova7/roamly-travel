@@ -7,9 +7,10 @@ interface DayCardProps {
   onHighlightStop: (stopId: string | null) => void;
   highlightedStop: string | null;
   onDayClick?: (dayNumber: number) => void;
+  onStopClick?: (name: string, lat: number, lng: number) => void;
 }
 
-export function DayCard({ day, onHighlightStop, highlightedStop, onDayClick }: DayCardProps) {
+export function DayCard({ day, onHighlightStop, highlightedStop, onDayClick, onStopClick }: DayCardProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 15 }}
@@ -58,7 +59,10 @@ export function DayCard({ day, onHighlightStop, highlightedStop, onDayClick }: D
                 <div className="flex items-baseline gap-2 mb-0.5">
                   <span className="text-xs text-muted-foreground font-body font-medium">{stop.time}</span>
                 </div>
-                <h4 className="font-body font-semibold text-sm text-foreground">{stop.name}</h4>
+                <h4
+                  className="font-body font-semibold text-sm text-foreground hover:text-accent cursor-pointer transition-colors"
+                  onClick={(e) => { e.stopPropagation(); onStopClick?.(stop.name, stop.lat, stop.lng); }}
+                >{stop.name}</h4>
                 <p className="text-xs text-muted-foreground font-body mt-0.5 leading-relaxed">{stop.description}</p>
                 <div className="flex flex-wrap gap-1.5 mt-2">
                   <span className="text-[10px] font-body px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{stop.hours}</span>
