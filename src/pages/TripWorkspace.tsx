@@ -6,6 +6,7 @@ import { RoamlyLogo } from "@/components/RoamlyLogo";
 import { ChatPanel } from "@/components/ChatPanel";
 import { TripMap } from "@/components/TripMap";
 import { DestinationPanel } from "@/components/DestinationPanel";
+import { ExportTripMenu } from "@/components/ExportTripMenu";
 import { type DayPlan, type TripConfig } from "@/data/demoTrip";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -36,6 +37,7 @@ export default function TripWorkspace() {
           {tripConfig.from} → {tripConfig.to} | {tripConfig.days} | {tripConfig.budget}
         </div>
         <div className="flex items-center gap-2">
+          {itinerary && <ExportTripMenu itinerary={itinerary} tripConfig={tripConfig} />}
           <Button variant="ghost" size="sm" onClick={() => navigate("/")} className="font-body text-xs gap-1">
             <Plus className="w-3.5 h-3.5" /> New Trip
           </Button>
