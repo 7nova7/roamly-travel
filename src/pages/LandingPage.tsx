@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RoamlyLogo } from "@/components/RoamlyLogo";
 import { PlacesAutocomplete } from "@/components/PlacesAutocomplete";
+import { DestinationCarousel } from "@/components/DestinationCarousel";
 
 const tripLengths = ["Day trip", "Weekend", "Full week", "Custom"];
 const travelModes = [
@@ -150,6 +151,9 @@ export default function LandingPage() {
           </motion.div>
         </div>
       </section>
+
+      {/* Destination Carousel */}
+      <DestinationCarousel />
 
       {/* How it works */}
       <section className="py-24 px-4 sm:px-6 bg-secondary/30">

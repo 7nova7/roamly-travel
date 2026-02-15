@@ -122,3 +122,13 @@
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground) / 0.3);
 }
+
+/* Destination carousel marquee */
+@keyframes scroll-left {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+@keyframes scroll-right {
+  0% { transform: translateX(-50%); }
+  100% { transform: translateX(0); }
+}
