@@ -5,7 +5,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { loadGoogleMaps } from "@/lib/google-maps";
+// Google Maps is still used by PhotoCarousel & PlacePhoto for Places API
 import { PhotoCarousel } from "@/components/destination/PhotoCarousel";
 import { PlacePhoto } from "@/components/destination/PlacePhoto";
 
@@ -86,26 +86,39 @@ export function DestinationPanel({ stop, onClose }: DestinationPanelProps) {
     })();
   }, [stop, toast]);
 
-  // Mini map for Location tab
+  // Mini map for Location tab (Mapbox)
   useEffect(() => {
     if (!details?.location || !miniMapRef.current) return;
-    loadGoogleMaps().then(() => {
+    let map: any = null;
+
+    (async () => {
+      const { getMapboxToken } = await import("@/lib/mapbox");
+      const mapboxgl = (await import("mapbox-gl")).default;
+      await import("mapbox-gl/dist/mapbox-gl.css");
+
+      const token = await getMapboxToken();
       if (!miniMapRef.current) return;
-      const gm = (window as any).google.maps;
-      const pos = { lat: details.location.lat, lng: details.location.lng };
-      miniMapInstance.current = new gm.Map(miniMapRef.current, {
-        center: pos,
+      mapboxgl.accessToken = token;
+
+      map = new mapboxgl.Map({
+        container: miniMapRef.current!,
+        style: "mapbox://styles/mapbox/streets-v12",
+        center: [details.location.lng, details.location.lat],
         zoom: 14,
-        disableDefaultUI: true,
-        zoomControl: true,
-        styles: [
-          { featureType: "poi", stylers: [{ visibility: "off" }] },
-          { featureType: "transit", stylers: [{ visibility: "off" }] },
-        ],
+        attributionControl: false,
       });
-      new gm.Marker({ position: pos, map: miniMapInstance.current, title: stop?.name });
-    });
-    return () => { miniMapInstance.current = null; };
+
+      new mapboxgl.Marker({ color: "#F4A261" })
+        .setLngLat([details.location.lng, details.location.lat])
+        .addTo(map);
+
+      miniMapInstance.current = map;
+    })();
+
+    return () => {
+      map?.remove();
+      miniMapInstance.current = null;
+    };
   }, [details?.location, stop?.name]);
 
   if (!stop) return null;
