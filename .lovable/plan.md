@@ -1,86 +1,68 @@
 
 
-# Export Trip to Mobile / Google Maps
+# Animated Destination Carousel on Landing Page
 
-## Overview
+## What You'll Get
 
-Add an "Export" button to the trip workspace that lets users share their itinerary in three ways:
+A horizontally auto-scrolling carousel of destination cards placed directly below the "Plan My Trip" button. Each card shows a beautiful city photo with the trip title overlaid. The cards scroll continuously in a marquee-style animation, and clicking any card navigates to the trip workspace where the AI automatically generates an itinerary for that destination.
 
-1. **Open in Google Maps** -- generates a Google Maps directions URL with all stops as waypoints, openable on any phone
-2. **Download KML file** -- produces a standard KML file importable into Google Maps (My Maps), Google Earth, or any GPS app
-3. **Share link** -- copies a shareable URL so users can view the trip on their phone's browser
+## Destination Cards
 
-## How Each Export Works
+Each card will include:
+- A high-quality Unsplash photo of the city (loaded via URL, no local assets needed)
+- A trip title overlay at the bottom (e.g., "A NYC Classic", "Urban Adventure in Tokyo")
+- Rounded corners matching the reference screenshot style
 
-### 1. Google Maps Directions Link
-Builds a URL like `https://www.google.com/maps/dir/Stop+1/Stop+2/Stop+3/...` using lat/lng coordinates. When opened on a phone, it launches the Google Maps app with turn-by-turn navigation for the full route. Google Maps supports up to 10 waypoints per URL, so multi-day trips will generate one link per day.
+The list will include 16+ destinations spanning the globe:
+- New York, Tokyo, Paris, Barcelona, London, Cancun, Toronto, Rome, Bali, Sydney, Dubai, Marrakech, Reykjavik, Cape Town, Bangkok, Lisbon, and more
 
-### 2. KML File Download
-Generates a `.kml` XML file containing all stops as placemarks with names, descriptions, and coordinates. Users can:
-- Import it into Google Maps via "My Maps" on desktop, then access it on the Google Maps mobile app
-- Open it directly in Google Earth on their phone
-- Load it into any GPS/navigation app that supports KML
+## Animation
 
-### 3. Share / Copy Link
-Uses the browser's native Share API (available on mobile) or copies the current trip URL to clipboard. This lets users text or email the trip to themselves.
+- Two rows scrolling in opposite directions (row 1 left-to-right, row 2 right-to-left) for visual interest
+- CSS keyframe marquee animation -- smooth, infinite, and performant (no JS timers)
+- The card list is duplicated so the scroll loops seamlessly without gaps
+- Animation pauses on hover so users can click a card easily
+- Full-width overflow hidden container so cards appear and disappear at the edges
 
-## UI Design
+## Click Behavior
 
-A floating "Export" button appears in the top-right area of the map (or in the nav bar). Clicking it opens a small dropdown/dialog with three options:
+When a user clicks a destination card, it navigates to `/plan` with pre-filled state:
+- `from`: a sensible origin (e.g., "Your Location")
+- `to`: the destination city
+- `days`: a preset trip length per destination (e.g., "Weekend", "Full week")
+- `budget`: "No limit"
+- `mode`: "Plane" for international, "Car" for domestic
 
-```text
-+----------------------------------+
-|  Export Trip                     |
-|                                  |
-|  [map pin icon]  Open in Google Maps   |
-|  [download icon] Download KML File     |
-|  [share icon]    Copy Share Link       |
-+----------------------------------+
-```
+The trip workspace then auto-generates the itinerary via AI as it normally would.
 
-On mobile, the Share option uses the native share sheet (navigator.share).
+## Placement
+
+Inserted between the trip form card and the "How Roamly Works" section -- right after the hero section closes.
 
 ## Technical Details
 
-### New File: `src/components/ExportTripMenu.tsx`
-- Accepts `itinerary: DayPlan[]` and `tripConfig: TripConfig` as props
-- Contains three export functions:
-  - `exportToGoogleMaps(dayStops)` -- builds and opens the directions URL
-  - `exportToKML(itinerary)` -- generates KML XML string, creates a Blob, and triggers download
-  - `shareTrip()` -- uses `navigator.share()` with fallback to `navigator.clipboard.writeText()`
+### New File: `src/components/DestinationCarousel.tsx`
+- Contains the destination data array (city name, title, Unsplash image URL, trip config)
+- Renders two scrolling rows using CSS `@keyframes` animation on a flex container
+- Each card is an `<a>`-like clickable element using `useNavigate`
+- Cards are ~280px wide, ~200px tall with rounded-2xl corners and a gradient overlay for text readability
+- The card list is rendered twice (concatenated) to create the seamless loop effect
 
-### Modified File: `src/pages/TripWorkspace.tsx`
-- Import and render `ExportTripMenu` in the nav bar (next to "New Trip" button), visible only when an itinerary exists
+### Modified File: `src/pages/LandingPage.tsx`
+- Import and render `<DestinationCarousel />` between the hero section and "How it works" section
 
-### Modified File: `src/components/TripMap.tsx`
-- No changes needed -- the export menu lives outside the map
-
-### Google Maps URL Format
+### CSS Animation (in component via Tailwind arbitrary values or inline style)
 ```
-https://www.google.com/maps/dir/{lat1},{lng1}/{lat2},{lng2}/{lat3},{lng3}/...
+@keyframes scroll-left {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+@keyframes scroll-right {
+  0% { transform: translateX(-50%); }
+  100% { transform: translateX(0); }
+}
 ```
-If a day has more than 10 stops, it splits into multiple links.
+Duration ~40-60s for a smooth, leisurely scroll.
 
-### KML Generation (no library needed)
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2">
-  <Document>
-    <name>Trip: Austin to Denver</name>
-    <Folder>
-      <name>Day 1 - Hill Country</name>
-      <Placemark>
-        <name>Stop Name</name>
-        <description>Stop description</description>
-        <Point>
-          <coordinates>-97.74,30.27,0</coordinates>
-        </Point>
-      </Placemark>
-    </Folder>
-  </Document>
-</kml>
-```
-
-### No new dependencies or backend changes required
-Everything is generated client-side using browser APIs.
-
+### No backend changes needed
+All destination data is hardcoded. The existing `/plan` route and AI itinerary generation handle everything once the user lands on the workspace.
