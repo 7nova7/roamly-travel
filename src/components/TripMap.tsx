@@ -121,13 +121,13 @@ export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDa
       } else {
         map.setTerrain(null);
       }
-      // Re-add route and markers
-      addRouteAndMarkers();
+      // Re-add route and markers without resetting position
+      addRouteAndMarkers(true);
     });
   };
 
   // Build markers & route
-  const addRouteAndMarkers = () => {
+  const addRouteAndMarkers = (skipFitBounds = false) => {
     const map = mapInstance.current;
     if (!map || !itinerary) return;
 
@@ -220,8 +220,8 @@ export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDa
       });
     }
 
-    // Fit bounds
-    fitBounds(coords);
+    // Fit bounds only on initial load
+    if (!skipFitBounds) fitBounds(coords);
   };
 
   const fitBounds = (coords: [number, number][], padding = 60) => {
