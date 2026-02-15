@@ -94,8 +94,18 @@ export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDa
     if (!map) return;
     setActiveStyle(styleId);
 
+    // Preserve current position
+    const center = map.getCenter();
+    const zoom = map.getZoom();
+    const pitch = map.getPitch();
+    const bearing = map.getBearing();
+
     map.setStyle(styleUrl);
     map.once("style.load", () => {
+      map.setCenter(center);
+      map.setZoom(zoom);
+      map.setPitch(pitch);
+      map.setBearing(bearing);
       // Re-add terrain source
       if (!map.getSource("mapbox-dem")) {
         map.addSource("mapbox-dem", {
@@ -227,7 +237,7 @@ export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDa
     if (mapReady && itinerary) addRouteAndMarkers();
   }, [itinerary, mapReady]);
 
-  // Zoom to focused day
+  // Zoom to focused day (only when explicitly focusing a day)
   useEffect(() => {
     const map = mapInstance.current;
     if (!map || !itinerary || !mapReady) return;
@@ -238,10 +248,8 @@ export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDa
         const coords: [number, number][] = day.stops.map((s) => [s.lng, s.lat]);
         fitBounds(coords, 80);
       }
-    } else {
-      const coords: [number, number][] = itinerary.flatMap((d) => d.stops.map((s) => [s.lng, s.lat]));
-      fitBounds(coords);
     }
+    // Don't reset view when focusedDay becomes null
   }, [focusedDay, mapReady]);
 
   // Resize on visibility change
