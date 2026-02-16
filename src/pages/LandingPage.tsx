@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Car, Plane, TrainFront, DollarSign, ArrowRight, CalendarIcon } from "lucide-react";
+import { Car, Plane, TrainFront, DollarSign, ArrowRight, CalendarIcon, Map } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,7 @@ const travelModes = [
 { icon: Plane, label: "Plane" },
 { icon: Car, label: "Car" },
 { icon: TrainFront, label: "Train" }];
+
 
 
 
@@ -282,31 +283,61 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Testimonials */}
-      <section className="py-24 px-4 sm:px-6">
+      {/* Featured itineraries */}
+      <section className="pb-20 px-4 sm:px-6">
         <div className="max-w-5xl mx-auto">
-          <h2 className="text-3xl font-display font-bold text-primary text-center mb-12">What travelers say</h2>
+          <div className="flex items-center justify-between gap-4 mb-8">
+            <div>
+              <h3 className="text-2xl font-display font-bold text-primary">Featured itineraries</h3>
+              <p className="text-sm font-body text-muted-foreground mt-1">A few standout trips to spark your plan.</p>
+            </div>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
-            { name: "Sarah K.", quote: "Roamly saved us 3 hours of driving and found a hidden waterfall we never would've seen.", avatar: "S" },
-            { name: "Marcus L.", quote: "It knew that the museum closed at 4pm and rearranged our whole day. Genius.", avatar: "M" },
-            { name: "The Chen Family", quote: "Planning our cross-country trip went from stressful to genuinely fun. 10/10.", avatar: "C" }].
-            map((t, i) =>
-            <motion.div
-              key={t.name}
-              initial={{ opacity: 0, y: 15 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.1 }}
-              className="bg-card rounded-2xl border border-border/60 p-6 shadow-sm">
-
-                <p className="text-foreground font-body mb-4 italic">"{t.quote}"</p>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-body font-bold text-sm">{t.avatar}</div>
-                  <span className="font-body font-medium text-sm text-muted-foreground">{t.name}</span>
+              { title: "Paris Weekend", subtitle: "Bakeries + galleries + Seine at dusk", tag: "Weekend", stops: ["Le Marais", "Louvre loop", "Montmartre"] },
+              { title: "Tokyo Full Week", subtitle: "Neighborhood loops + ramen + shrine mornings", tag: "Full week", stops: ["Shibuya", "Asakusa", "Omoide Yokocho"] },
+              { title: "San Francisco Day Trip", subtitle: "Waterfront + hidden stairs + Mission murals", tag: "Day trip", stops: ["Ferry Building", "Lombard views", "Dolores Park"] },
+            ].map((item, i) => (
+              <motion.div
+                key={item.title}
+                initial={{ opacity: 0, y: 14 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.08 }}
+                className="bg-card rounded-2xl border border-border/60 p-6 shadow-sm hover:shadow-md transition-shadow"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-body font-semibold text-foreground">{item.title}</p>
+                  <span className="text-[10px] font-body font-semibold text-accent-foreground bg-accent/10 px-2 py-1 rounded-full">
+                    {item.tag}
+                  </span>
                 </div>
+                <p className="text-xs font-body text-muted-foreground">{item.subtitle}</p>
+                <div className="flex flex-wrap gap-2 mt-4">
+                  {item.stops.map((stop) => (
+                    <span key={stop} className="text-[10px] font-body text-muted-foreground bg-secondary/60 px-2 py-1 rounded-full">
+                      {stop}
+                    </span>
+                  ))}
+                </div>
+                <button
+                  onClick={() => navigate("/itineraries")}
+                  className="mt-4 text-xs font-body font-medium text-accent hover:underline"
+                >
+                  View sample →
+                </button>
               </motion.div>
-            )}
+            ))}
+          </div>
+          <div className="mt-8 flex justify-center">
+            <button
+              onClick={() => navigate("/itineraries")}
+              className="flex items-center gap-2 rounded-full border border-border/70 bg-card px-4 py-2 text-xs font-body font-medium text-foreground hover:bg-secondary/60 transition-colors"
+              aria-label="See all example itineraries"
+            >
+              <Map className="w-4 h-4 text-accent" />
+              See all itineraries
+            </button>
           </div>
         </div>
       </section>

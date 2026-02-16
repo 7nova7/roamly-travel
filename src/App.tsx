@@ -8,6 +8,7 @@ import LandingPage from "./pages/LandingPage";
 import TripWorkspace from "./pages/TripWorkspace";
 import MyTrips from "./pages/MyTrips";
 import AdminDashboard from "./pages/AdminDashboard";
+import Itineraries from "./pages/Itineraries";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -23,6 +24,7 @@ const App = () => (
             <Route path="/" element={<LandingPage />} />
             <Route path="/plan" element={<TripWorkspace />} />
             <Route path="/trips" element={<MyTrips />} />
+            <Route path="/itineraries" element={<Itineraries />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
