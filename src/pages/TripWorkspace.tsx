@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Map, MessageSquare, Plus, Save, Loader2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
@@ -14,6 +14,7 @@ import { type DayPlan, type TripConfig } from "@/data/demoTrip";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/hooks/useAuth";
 import { useSaveTrip } from "@/hooks/useSaveTrip";
+import { decodeShareData } from "@/lib/share";
 
 interface SavedTripState {
   from: string;
@@ -42,10 +43,21 @@ export default function TripWorkspace() {
   const [authOpen, setAuthOpen] = useState(false);
 
   const state = (location.state || {}) as SavedTripState;
-  const tripConfig: TripConfig = { from: state.from || "Unknown", to: state.to || "Unknown", days: state.days || "Weekend", budget: state.budget || "$$", mode: state.mode || "Car", startDate: state.startDate, endDate: state.endDate };
+  const shared = useMemo(() => decodeShareData(location.search), [location.search]);
+  const tripConfig: TripConfig = {
+    from: shared?.tripConfig.from || state.from || "Unknown",
+    to: shared?.tripConfig.to || state.to || "Unknown",
+    days: shared?.tripConfig.days || state.days || "Weekend",
+    budget: shared?.tripConfig.budget || state.budget || "$$",
+    mode: shared?.tripConfig.mode || state.mode || "Car",
+    startDate: shared?.tripConfig.startDate || state.startDate,
+    endDate: shared?.tripConfig.endDate || state.endDate,
+  };
   const [savedTripId, setSavedTripId] = useState<string | undefined>(state.savedTripId);
-  const [itinerary, setItinerary] = useState<DayPlan[] | null>(state.savedItinerary ?? null);
-  const [preferences, setPreferences] = useState<{ interests: string[]; pace: string; mustSees: string } | undefined>(state.savedPreferences);
+  const [itinerary, setItinerary] = useState<DayPlan[] | null>(shared?.itinerary ?? state.savedItinerary ?? null);
+  const [preferences, setPreferences] = useState<{ interests: string[]; pace: string; mustSees: string } | undefined>(
+    shared?.preferences ?? state.savedPreferences
+  );
 
   const handleStopClick = (name: string, lat: number, lng: number) => {
     setSelectedStop({ name, lat, lng });
@@ -114,7 +126,7 @@ export default function TripWorkspace() {
                 onStopZoom={handleStopZoom}
                 onSaveTrip={handleSave}
                 onPreferencesUpdate={handlePreferencesUpdate}
-                initialItinerary={state.savedItinerary}
+                initialItinerary={shared?.itinerary ?? state.savedItinerary}
               />
             </div>
             <div className="flex-1 relative">
@@ -139,7 +151,7 @@ export default function TripWorkspace() {
                 onStopZoom={(lat, lng) => { handleStopZoom(lat, lng); setShowMap(true); }}
                 onSaveTrip={handleSave}
                 onPreferencesUpdate={handlePreferencesUpdate}
-                initialItinerary={state.savedItinerary}
+                initialItinerary={shared?.itinerary ?? state.savedItinerary}
               />
             </div>
           </>

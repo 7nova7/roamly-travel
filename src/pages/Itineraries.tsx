@@ -1,13 +1,14 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { RoamlyLogo } from "@/components/RoamlyLogo";
 import { UserMenu } from "@/components/UserMenu";
 import { useToast } from "@/hooks/use-toast";
 import { getMapboxToken } from "@/lib/mapbox";
 import type { DayPlan, Stop } from "@/data/demoTrip";
+import { CityImage } from "@/components/CityImage";
 
 type Duration = "All" | "Day trip" | "Weekend" | "Full week";
 
@@ -163,11 +164,71 @@ export default function Itineraries() {
   const [activeDuration, setActiveDuration] = useState<Duration>("All");
   const [loadingCard, setLoadingCard] = useState<string | null>(null);
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+  const autoHandledRef = useRef(false);
+
+  const openSample = useCallback(async (item: (typeof exampleItineraries)[number], cardId: string) => {
+    setLoadingCard(cardId);
+    let didNavigate = false;
+    try {
+      const token = await getMapboxToken();
+      const query = `${item.city}, ${item.region}`;
+      const resp = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${token}&limit=1&types=place,locality`
+      );
+      if (!resp.ok) throw new Error("Unable to load location data");
+      const data = await resp.json();
+      const feature = data?.features?.[0];
+      if (!feature?.center?.length) throw new Error("Location not found");
+      const [lng, lat] = feature.center as [number, number];
+      const itinerary = buildItinerary(item, { lat, lng });
+      didNavigate = true;
+      navigate("/plan", {
+        state: {
+          from: item.city,
+          to: item.city,
+          days: item.duration,
+          budget: "$$",
+          mode: "Car",
+          savedItinerary: itinerary,
+        },
+      });
+    } catch (err: any) {
+      toast({
+        title: "Couldn't open itinerary",
+        description: err?.message || "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      if (!didNavigate) setLoadingCard(null);
+    }
+  }, [navigate, toast]);
 
   const filtered = useMemo(() => {
     if (activeDuration === "All") return exampleItineraries;
     return exampleItineraries.filter((item) => item.duration === activeDuration);
   }, [activeDuration]);
+
+  useEffect(() => {
+    if (autoHandledRef.current) return;
+    const city = searchParams.get("city");
+    const duration = searchParams.get("duration") as Duration | null;
+    if (!city || !duration) return;
+
+    autoHandledRef.current = true;
+    if (durations.includes(duration)) setActiveDuration(duration);
+    const match = exampleItineraries.find((item) => item.city === city && item.duration === duration);
+    if (match) {
+      const cardId = `${match.city}-${match.duration}`;
+      openSample(match, cardId);
+    } else {
+      toast({
+        title: "Itinerary not found",
+        description: "Try another example or browse the list.",
+        variant: "destructive",
+      });
+    }
+  }, [searchParams, openSample, toast]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -224,6 +285,13 @@ export default function Itineraries() {
               whileHover={{ y: -4 }}
               className="bg-card border border-border/60 rounded-2xl p-4 shadow-sm"
             >
+              <CityImage
+                city={item.city}
+                region={item.region}
+                size="700x420"
+                alt={`${item.city} itinerary`}
+                className="w-full h-28 rounded-xl mb-3"
+              />
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-sm font-body font-semibold text-foreground">{item.city}</p>
@@ -245,42 +313,7 @@ export default function Itineraries() {
                 ))}
               </div>
               <button
-                onClick={async () => {
-                  setLoadingCard(cardId);
-                  let didNavigate = false;
-                  try {
-                    const token = await getMapboxToken();
-                    const query = `${item.city}, ${item.region}`;
-                    const resp = await fetch(
-                      `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${token}&limit=1&types=place,locality`
-                    );
-                    if (!resp.ok) throw new Error("Unable to load location data");
-                    const data = await resp.json();
-                    const feature = data?.features?.[0];
-                    if (!feature?.center?.length) throw new Error("Location not found");
-                    const [lng, lat] = feature.center as [number, number];
-                    const itinerary = buildItinerary(item, { lat, lng });
-                    didNavigate = true;
-                    navigate("/plan", {
-                      state: {
-                        from: item.city,
-                        to: item.city,
-                        days: item.duration,
-                        budget: "$$",
-                        mode: "Car",
-                        savedItinerary: itinerary,
-                      },
-                    });
-                  } catch (err: any) {
-                    toast({
-                      title: "Couldn't open itinerary",
-                      description: err?.message || "Please try again.",
-                      variant: "destructive",
-                    });
-                  } finally {
-                    if (!didNavigate) setLoadingCard(null);
-                  }
-                }}
+                onClick={() => openSample(item, cardId)}
                 className="mt-4 w-full flex items-center justify-center gap-2 text-xs font-body font-medium text-accent-foreground bg-accent/10 hover:bg-accent/20 transition-colors px-3 py-2 rounded-xl disabled:opacity-60"
                 disabled={isLoading}
               >

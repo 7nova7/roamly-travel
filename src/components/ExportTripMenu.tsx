@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { type DayPlan, type TripConfig } from "@/data/demoTrip";
 import { toast } from "sonner";
+import { encodeShareData } from "@/lib/share";
 
 interface ExportTripMenuProps {
   itinerary: DayPlan[];
@@ -73,17 +74,21 @@ function escapeXml(str: string) {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-async function shareTrip() {
-  const url = window.location.href;
+async function shareTrip(itinerary: DayPlan[], tripConfig: TripConfig) {
+  const shareUrl = `${window.location.origin}/plan?share=${encodeShareData({
+    v: 1,
+    tripConfig,
+    itinerary,
+  })}`;
   if (navigator.share) {
     try {
-      await navigator.share({ title: "My Trip on Roamly", url });
+      await navigator.share({ title: "My Trip on Roamly", url: shareUrl });
       return;
     } catch {
       // user cancelled or not supported
     }
   }
-  await navigator.clipboard.writeText(url);
+  await navigator.clipboard.writeText(shareUrl);
   toast.success("Link copied to clipboard");
 }
 
@@ -102,7 +107,7 @@ export function ExportTripMenu({ itinerary, tripConfig }: ExportTripMenuProps) {
         <DropdownMenuItem onClick={() => exportToKML(itinerary, tripConfig)} className="gap-2 cursor-pointer">
           <Download className="w-4 h-4" /> Download KML File
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => shareTrip()} className="gap-2 cursor-pointer">
+        <DropdownMenuItem onClick={() => shareTrip(itinerary, tripConfig)} className="gap-2 cursor-pointer">
           <Share2 className="w-4 h-4" /> Copy Share Link
         </DropdownMenuItem>
       </DropdownMenuContent>

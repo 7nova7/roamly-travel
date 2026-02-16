@@ -13,6 +13,7 @@ import { DestinationCarousel } from "@/components/DestinationCarousel";
 import { UserMenu } from "@/components/UserMenu";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { DateRange } from "react-day-picker";
+import { CityImage } from "@/components/CityImage";
 
 const tripLengths = ["Day trip", "Weekend", "Full week", "Custom"];
 const travelModes = [
@@ -294,9 +295,9 @@ export default function LandingPage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
-              { title: "Paris Weekend", subtitle: "Bakeries + galleries + Seine at dusk", tag: "Weekend", stops: ["Le Marais", "Louvre loop", "Montmartre"] },
-              { title: "Tokyo Full Week", subtitle: "Neighborhood loops + ramen + shrine mornings", tag: "Full week", stops: ["Shibuya", "Asakusa", "Omoide Yokocho"] },
-              { title: "San Francisco Day Trip", subtitle: "Waterfront + hidden stairs + Mission murals", tag: "Day trip", stops: ["Ferry Building", "Lombard views", "Dolores Park"] },
+              { title: "Paris Weekend", city: "Paris", duration: "Weekend", subtitle: "Bakeries + galleries + Seine at dusk", tag: "Weekend", stops: ["Le Marais", "Louvre loop", "Montmartre"] },
+              { title: "Tokyo Full Week", city: "Tokyo", duration: "Full week", subtitle: "Neighborhood loops + ramen + shrine mornings", tag: "Full week", stops: ["Shibuya", "Asakusa", "Omoide Yokocho"] },
+              { title: "San Francisco Day Trip", city: "San Francisco", duration: "Day trip", subtitle: "Waterfront + hidden stairs + Mission murals", tag: "Day trip", stops: ["Ferry Building", "Lombard views", "Dolores Park"] },
             ].map((item, i) => (
               <motion.div
                 key={item.title}
@@ -306,6 +307,12 @@ export default function LandingPage() {
                 transition={{ delay: i * 0.08 }}
                 className="bg-card rounded-2xl border border-border/60 p-6 shadow-sm hover:shadow-md transition-shadow"
               >
+                <CityImage
+                  city={item.city}
+                  size="900x520"
+                  alt={`${item.city} itinerary`}
+                  className="w-full h-36 rounded-xl mb-4"
+                />
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-sm font-body font-semibold text-foreground">{item.title}</p>
                   <span className="text-[10px] font-body font-semibold text-accent-foreground bg-accent/10 px-2 py-1 rounded-full">
@@ -321,7 +328,7 @@ export default function LandingPage() {
                   ))}
                 </div>
                 <button
-                  onClick={() => navigate("/itineraries")}
+                  onClick={() => navigate(`/itineraries?city=${encodeURIComponent(item.city)}&duration=${encodeURIComponent(item.duration)}`)}
                   className="mt-4 text-xs font-body font-medium text-accent hover:underline"
                 >
                   View sample →
