@@ -62,8 +62,8 @@ export default function LandingPage() {
             loop
             playsInline
             preload="auto"
-            className="min-w-full min-h-full object-cover"
-          />
+            className="min-w-full min-h-full object-cover" />
+
         </div>
         <div className="absolute inset-0 bg-black/50 z-[1]" />
 
@@ -74,7 +74,7 @@ export default function LandingPage() {
             transition={{ duration: 0.6 }}
             className="text-4xl sm:text-5xl lg:text-6xl font-display font-bold text-white leading-tight mb-6">
 
-            A to Everywhere, Smarter       
+            Travel With Roamly, Making Trips Smarter                      
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
