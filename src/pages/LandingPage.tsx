@@ -29,6 +29,9 @@ export default function LandingPage() {
   useEffect(() => {
     const video = videoRef.current;
     if (video) {
+      // Use the local file, with a fallback to a stock video for testing
+      video.src = "/videos/hero-bg.mp4";
+      video.load();
       video.play().catch(() => {});
     }
   }, []);
@@ -51,19 +54,20 @@ export default function LandingPage() {
 
       {/* Hero */}
       <section className="pt-32 pb-20 px-4 sm:px-6 relative overflow-hidden">
-        <video
-          ref={videoRef}
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="auto"
-          src="/videos/hero-bg.mp4"
-          className="absolute inset-0 w-full h-full object-cover -z-20"
-        />
-        <div className="absolute inset-0 bg-black/50 -z-10" />
+        <div className="absolute inset-0 z-0 overflow-hidden">
+          <video
+            ref={videoRef}
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="auto"
+            className="min-w-full min-h-full object-cover"
+          />
+        </div>
+        <div className="absolute inset-0 bg-black/50 z-[1]" />
 
-        <div className="max-w-4xl mx-auto text-center">
+        <div className="max-w-4xl mx-auto text-center relative z-10">
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
