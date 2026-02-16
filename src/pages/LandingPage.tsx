@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Car, Plane, TrainFront, DollarSign, ArrowRight } from "lucide-react";
@@ -16,6 +16,7 @@ const travelModes = [
 { icon: TrainFront, label: "Train" }];
 
 
+
 export default function LandingPage() {
   const navigate = useNavigate();
   const [from, setFrom] = useState("");
@@ -23,6 +24,14 @@ export default function LandingPage() {
   const [tripLength, setTripLength] = useState("Weekend");
   const [budgetAmount, setBudgetAmount] = useState("");
   const [mode, setMode] = useState("Car");
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video) {
+      video.play().catch(() => {});
+    }
+  }, []);
 
   const handlePlanTrip = () => {
     if (!from.trim() || !to.trim()) return;
@@ -43,6 +52,7 @@ export default function LandingPage() {
       {/* Hero */}
       <section className="pt-32 pb-20 px-4 sm:px-6 relative overflow-hidden">
         <video
+          ref={videoRef}
           autoPlay
           muted
           loop
