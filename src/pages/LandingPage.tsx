@@ -59,15 +59,15 @@ export default function LandingPage() {
           budget,
           mode,
           startDate: format(dateRange.from, "yyyy-MM-dd"),
-          endDate: format(dateRange.to, "yyyy-MM-dd"),
-        },
+          endDate: format(dateRange.to, "yyyy-MM-dd")
+        }
       });
     } else {
       navigate("/plan", { state: { from: from.trim(), to: to.trim(), days: tripLength, budget, mode } });
     }
   };
 
-  const canSubmit = from.trim() && to.trim() && (dateMode === "flexible" || (dateRange?.from && dateRange?.to));
+  const canSubmit = from.trim() && to.trim() && (dateMode === "flexible" || dateRange?.from && dateRange?.to);
 
   return (
     <div className="min-h-screen bg-background">
@@ -135,65 +135,65 @@ export default function LandingPage() {
             <div className="mb-6">
               <label className="text-xs font-body font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">When are you going?</label>
               <div className="flex gap-2 mb-3">
-                {(["flexible", "specific"] as const).map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => setDateMode(m)}
-                    className={`px-4 py-2 rounded-full text-sm font-body font-medium transition-all ${
-                      dateMode === m
-                        ? "bg-primary text-primary-foreground shadow-md"
-                        : "bg-secondary text-secondary-foreground hover:bg-secondary/70"
-                    }`}
-                  >
+                {(["flexible", "specific"] as const).map((m) =>
+                <button
+                  key={m}
+                  onClick={() => setDateMode(m)}
+                  className={`px-4 py-2 rounded-full text-sm font-body font-medium transition-all ${
+                  dateMode === m ?
+                  "bg-primary text-primary-foreground shadow-md" :
+                  "bg-secondary text-secondary-foreground hover:bg-secondary/70"}`
+                  }>
+
                     {m === "flexible" ? "Flexible" : "Specific Dates"}
                   </button>
-                ))}
+                )}
               </div>
 
-              {dateMode === "flexible" ? (
-                <div className="flex flex-wrap gap-2">
-                  {tripLengths.map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => setTripLength(t)}
-                      className={`px-4 py-2 rounded-full text-sm font-body font-medium transition-all ${
-                        tripLength === t
-                          ? "bg-accent text-accent-foreground shadow-sm"
-                          : "bg-secondary text-secondary-foreground hover:bg-secondary/70"
-                      }`}
-                    >
+              {dateMode === "flexible" ?
+              <div className="flex flex-wrap gap-2">
+                  {tripLengths.map((t) =>
+                <button
+                  key={t}
+                  onClick={() => setTripLength(t)}
+                  className={`px-4 py-2 rounded-full text-sm font-body font-medium transition-all ${
+                  tripLength === t ?
+                  "bg-accent text-accent-foreground shadow-sm" :
+                  "bg-secondary text-secondary-foreground hover:bg-secondary/70"}`
+                  }>
+
                       {t}
                     </button>
-                  ))}
-                </div>
-              ) : (
-                <Popover>
+                )}
+                </div> :
+
+              <Popover>
                   <PopoverTrigger asChild>
                     <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-card text-sm font-body font-medium text-foreground hover:bg-secondary/50 transition-all w-full sm:w-auto">
                       <CalendarIcon className="w-4 h-4 text-muted-foreground" />
-                      {dateRange?.from && dateRange?.to ? (
-                        <span>
+                      {dateRange?.from && dateRange?.to ?
+                    <span>
                           {format(dateRange.from, "MMM d")} – {format(dateRange.to, "MMM d")}
                           <span className="text-muted-foreground ml-1">
                             ({differenceInDays(dateRange.to, dateRange.from)} nights)
                           </span>
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">Pick your dates</span>
-                      )}
+                        </span> :
+
+                    <span className="text-muted-foreground">Pick your dates</span>
+                    }
                     </button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
                     <Calendar
-                      mode="range"
-                      selected={dateRange}
-                      onSelect={setDateRange}
-                      numberOfMonths={isMobile ? 1 : 2}
-                      disabled={{ before: new Date() }}
-                    />
+                    mode="range"
+                    selected={dateRange}
+                    onSelect={setDateRange}
+                    numberOfMonths={isMobile ? 1 : 2}
+                    disabled={{ before: new Date() }} />
+
                   </PopoverContent>
                 </Popover>
-              )}
+              }
             </div>
 
             {/* Budget - Dollar Input */}
@@ -295,24 +295,24 @@ export default function LandingPage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
-              { title: "Paris Weekend", city: "Paris", duration: "Weekend", subtitle: "Bakeries + galleries + Seine at dusk", tag: "Weekend", stops: ["Le Marais", "Louvre loop", "Montmartre"] },
-              { title: "Tokyo Full Week", city: "Tokyo", duration: "Full week", subtitle: "Neighborhood loops + ramen + shrine mornings", tag: "Full week", stops: ["Shibuya", "Asakusa", "Omoide Yokocho"] },
-              { title: "San Francisco Day Trip", city: "San Francisco", duration: "Day trip", subtitle: "Waterfront + hidden stairs + Mission murals", tag: "Day trip", stops: ["Ferry Building", "Lombard views", "Dolores Park"] },
-            ].map((item, i) => (
-              <motion.div
-                key={item.title}
-                initial={{ opacity: 0, y: 14 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.08 }}
-                className="bg-card rounded-2xl border border-border/60 p-6 shadow-sm hover:shadow-md transition-shadow"
-              >
+            { title: "Paris Weekend", city: "Paris", duration: "Weekend", subtitle: "Bakeries + galleries + Seine at dusk", tag: "Weekend", stops: ["Le Marais", "Louvre loop", "Montmartre"] },
+            { title: "Tokyo Full Week", city: "Tokyo", duration: "Full week", subtitle: "Neighborhood loops + ramen + shrine mornings", tag: "Full week", stops: ["Shibuya", "Asakusa", "Omoide Yokocho"] },
+            { title: "San Francisco Day Trip", city: "San Francisco", duration: "Day trip", subtitle: "Waterfront + hidden stairs + Mission murals", tag: "Day trip", stops: ["Ferry Building", "Lombard views", "Dolores Park"] }].
+            map((item, i) =>
+            <motion.div
+              key={item.title}
+              initial={{ opacity: 0, y: 14 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.08 }}
+              className="bg-card rounded-2xl border border-border/60 p-6 shadow-sm hover:shadow-md transition-shadow">
+
                 <CityImage
-                  city={item.city}
-                  size="900x520"
-                  alt={`${item.city} itinerary`}
-                  className="w-full h-36 rounded-xl mb-4"
-                />
+                city={item.city}
+                size="900x520"
+                alt={`${item.city} itinerary`}
+                className="w-full h-36 rounded-xl mb-4" />
+
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-sm font-body font-semibold text-foreground">{item.title}</p>
                   <span className="text-[10px] font-body font-semibold text-accent-foreground bg-accent/10 px-2 py-1 rounded-full">
@@ -321,27 +321,27 @@ export default function LandingPage() {
                 </div>
                 <p className="text-xs font-body text-muted-foreground">{item.subtitle}</p>
                 <div className="flex flex-wrap gap-2 mt-4">
-                  {item.stops.map((stop) => (
-                    <span key={stop} className="text-[10px] font-body text-muted-foreground bg-secondary/60 px-2 py-1 rounded-full">
+                  {item.stops.map((stop) =>
+                <span key={stop} className="text-[10px] font-body text-muted-foreground bg-secondary/60 px-2 py-1 rounded-full">
                       {stop}
                     </span>
-                  ))}
+                )}
                 </div>
                 <button
-                  onClick={() => navigate(`/itineraries?city=${encodeURIComponent(item.city)}&duration=${encodeURIComponent(item.duration)}`)}
-                  className="mt-4 text-xs font-body font-medium text-accent hover:underline"
-                >
+                onClick={() => navigate(`/itineraries?city=${encodeURIComponent(item.city)}&duration=${encodeURIComponent(item.duration)}`)}
+                className="mt-4 text-xs font-body font-medium text-accent hover:underline">
+
                   View sample →
                 </button>
               </motion.div>
-            ))}
+            )}
           </div>
           <div className="mt-8 flex justify-center">
             <button
               onClick={() => navigate("/itineraries")}
               className="flex items-center gap-2 rounded-full border border-border/70 bg-card px-4 py-2 text-xs font-body font-medium text-foreground hover:bg-secondary/60 transition-colors"
-              aria-label="See all example itineraries"
-            >
+              aria-label="See all example itineraries">
+
               <Map className="w-4 h-4 text-accent" />
               See all itineraries
             </button>
@@ -353,7 +353,7 @@ export default function LandingPage() {
       <footer className="border-t border-border py-8 px-4 sm:px-6">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <RoamlyLogo size="sm" className="text-primary" />
-          <p className="text-sm text-muted-foreground font-body">© 2026 Roamly. See more. Drive less.</p>
+          <p className="text-sm text-muted-foreground font-body">© 2026 Roamly. Travel more. Plan smarter.</p>
         </div>
       </footer>
     </div>);
