@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { MapPin } from "lucide-react";
 import { loadGoogleMaps } from "@/lib/google-maps";
 
@@ -13,8 +13,11 @@ export function PlacesAutocomplete({ value, onChange, placeholder, iconClassName
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<any>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const loadTriggered = useRef(false);
 
-  useEffect(() => {
+  const triggerLoad = useCallback(() => {
+    if (loadTriggered.current) return;
+    loadTriggered.current = true;
     loadGoogleMaps().then(() => setIsLoaded(true)).catch(console.error);
   }, []);
 
@@ -44,6 +47,7 @@ export function PlacesAutocomplete({ value, onChange, placeholder, iconClassName
         ref={inputRef}
         value={value}
         onChange={e => onChange(e.target.value)}
+        onFocus={triggerLoad}
         placeholder={placeholder}
         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 pl-10 text-sm font-body ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       />
