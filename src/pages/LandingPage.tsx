@@ -15,7 +15,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import type { DateRange } from "react-day-picker";
 import { CityImage } from "@/components/CityImage";
 
-const tripLengths = ["Day trip", "Weekend", "Full week", "Custom"];
+const tripLengths = ["Day trip", "Weekend", "Full week"];
 const travelModes = [
 { icon: Plane, label: "Plane" },
 { icon: Car, label: "Car" },
