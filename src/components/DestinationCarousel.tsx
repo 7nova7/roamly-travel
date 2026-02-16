@@ -21,14 +21,14 @@ const row1: Destination[] = [
 ];
 
 const row2: Destination[] = [
-  { city: "Sydney", title: "Sydney & Beyond", image: "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?w=600&q=80", days: "Full week", mode: "Plane" },
+  { city: "Sydney", title: "Sydney & Beyond", image: "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?w=600&q=80", days: "Weekend", mode: "Plane" },
   { city: "Dubai", title: "Desert & Skyline in Dubai", image: "https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=600&q=80", days: "Full week", mode: "Plane" },
-  { city: "Marrakech", title: "Marrakech Discovery", image: "https://images.unsplash.com/photo-1597212618440-806262de4f6b?w=600&q=80", days: "Weekend", mode: "Plane" },
-  { city: "Reykjavik", title: "Iceland in a Weekend", image: "https://images.unsplash.com/photo-1504829857797-ddff29c27927?w=600&q=80", days: "Weekend", mode: "Plane" },
+  { city: "Marrakech", title: "Marrakech Discovery", image: "https://images.unsplash.com/photo-1489749798305-4fea3ae63d43?w=600&q=80", days: "Weekend", mode: "Plane" },
+  { city: "Reykjavik", title: "Iceland in a Weekend", image: "https://images.unsplash.com/photo-1529963183134-61a90db47eaf?w=600&q=80", days: "Weekend", mode: "Plane" },
   { city: "Cape Town", title: "Cape Town Adventure", image: "https://images.unsplash.com/photo-1580060839134-75a5edca2e99?w=600&q=80", days: "Full week", mode: "Plane" },
-  { city: "Bangkok", title: "Bangkok Street Crawl", image: "https://images.unsplash.com/photo-1508009603885-50cf7c579365?w=600&q=80", days: "Full week", mode: "Plane" },
-  { city: "Lisbon", title: "Lisbon Long Weekend", image: "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=600&q=80", days: "Weekend", mode: "Plane" },
-  { city: "Buenos Aires", title: "Tango in Buenos Aires", image: "https://images.unsplash.com/photo-1589909202802-8f4aadce1849?w=600&q=80", days: "Full week", mode: "Plane" },
+  { city: "Bangkok", title: "Bangkok Street Crawl", image: "https://images.unsplash.com/photo-1508009603885-50cf7c579365?w=600&q=80", days: "Weekend", mode: "Plane" },
+  { city: "Lisbon", title: "Lisbon Long Weekend", image: "https://images.unsplash.com/photo-1585208798174-6cedd86e019a?w=600&q=80", days: "Weekend", mode: "Plane" },
+  { city: "Buenos Aires", title: "Tango in Buenos Aires", image: "https://images.unsplash.com/photo-1612294037637-ec328d0e075e?w=600&q=80", days: "Full week", mode: "Plane" },
   { city: "Kyoto", title: "Temples of Kyoto", image: "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=600&q=80", days: "Full week", mode: "Plane" },
 ];
 
@@ -61,7 +61,7 @@ export function DestinationCarousel() {
   const handleClick = (dest: Destination) => {
     navigate("/plan", {
       state: {
-        from: "Your Location",
+        from: dest.city,
         to: dest.city,
         days: dest.days,
         budget: "No limit",
