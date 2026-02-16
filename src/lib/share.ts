@@ -1,4 +1,5 @@
 import type { DayPlan, TripConfig } from "@/data/demoTrip";
+import { compressToEncodedURIComponent, decompressFromEncodedURIComponent } from "lz-string";
 
 export type ShareTripData = {
   v: 1;
@@ -26,7 +27,9 @@ function fromBase64Url(input: string): string {
 }
 
 export function encodeShareData(data: ShareTripData): string {
-  return toBase64Url(JSON.stringify(data));
+  const json = JSON.stringify(data);
+  const compressed = compressToEncodedURIComponent(json);
+  return compressed || toBase64Url(json);
 }
 
 export function decodeShareData(search: string): ShareTripData | null {
@@ -34,6 +37,17 @@ export function decodeShareData(search: string): ShareTripData | null {
     const params = new URLSearchParams(search);
     const raw = params.get("share");
     if (!raw) return null;
+    const decompressed = decompressFromEncodedURIComponent(raw);
+    if (decompressed && decompressed.trim().length > 0) {
+      try {
+        const parsed = JSON.parse(decompressed) as ShareTripData;
+        if (parsed && parsed.v === 1 && parsed.tripConfig && Array.isArray(parsed.itinerary)) {
+          return parsed;
+        }
+      } catch {
+        // fall through to base64
+      }
+    }
     const json = fromBase64Url(raw);
     const parsed = JSON.parse(json) as ShareTripData;
     if (!parsed || parsed.v !== 1 || !parsed.tripConfig || !Array.isArray(parsed.itinerary)) return null;
