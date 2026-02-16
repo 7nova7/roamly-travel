@@ -32,7 +32,7 @@ export default function TripWorkspace() {
   const { user } = useAuth();
   const { saveTrip, isSaving } = useSaveTrip();
   const [highlightedStop, setHighlightedStop] = useState<string | null>(null);
-  const [showMap, setShowMap] = useState(!isMobile);
+  const [showMap, setShowMap] = useState(false);
   const [focusedDay, setFocusedDay] = useState<number | null>(null);
   const [selectedStop, setSelectedStop] = useState<{ name: string; lat: number; lng: number } | null>(null);
   const [zoomTarget, setZoomTarget] = useState<{ lat: number; lng: number } | null>(null);
@@ -95,16 +95,6 @@ export default function TripWorkspace() {
         </div>
       </nav>
 
-      {/* Mobile map toggle */}
-      {isMobile && (
-        <button
-          onClick={() => setShowMap(!showMap)}
-          className="flex items-center justify-center gap-2 py-2.5 bg-secondary border-b border-border text-sm font-body font-medium text-foreground z-10"
-        >
-          {showMap ? <MessageSquare className="w-4 h-4" /> : <Map className="w-4 h-4" />}
-          {showMap ? "Show Chat" : "Show Map"}
-        </button>
-      )}
 
       {/* Main content */}
       <div className="flex-1 flex overflow-hidden">
@@ -154,6 +144,19 @@ export default function TripWorkspace() {
       </div>
 
       <AuthDialog open={authOpen} onOpenChange={setAuthOpen} />
+
+      {/* Mobile sticky bottom map/chat toggle — only after itinerary is ready */}
+      {isMobile && itinerary && (
+        <div className="fixed bottom-6 left-0 right-0 px-4 z-50 pointer-events-none">
+          <Button
+            onClick={() => setShowMap(!showMap)}
+            className="w-full pointer-events-auto shadow-lg rounded-full h-12 text-sm font-body font-semibold gap-2"
+          >
+            {showMap ? <MessageSquare className="w-4 h-4" /> : <Map className="w-4 h-4" />}
+            {showMap ? "Back to Chat" : "View on Map"}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
