@@ -1,25 +1,48 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Map, MessageSquare, Plus, User } from "lucide-react";
+import { Map, MessageSquare, Plus, Save, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RoamlyLogo } from "@/components/RoamlyLogo";
 import { ChatPanel } from "@/components/ChatPanel";
 import { TripMap } from "@/components/TripMap";
 import { DestinationPanel } from "@/components/DestinationPanel";
 import { ExportTripMenu } from "@/components/ExportTripMenu";
+import { UserMenu } from "@/components/UserMenu";
+import { AuthDialog } from "@/components/AuthDialog";
 import { type DayPlan, type TripConfig } from "@/data/demoTrip";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useAuth } from "@/hooks/useAuth";
+import { useSaveTrip } from "@/hooks/useSaveTrip";
+
+interface SavedTripState {
+  from: string;
+  to: string;
+  days: string;
+  budget: string;
+  mode: string;
+  savedTripId?: string;
+  savedItinerary?: DayPlan[];
+  savedPreferences?: { interests: string[]; pace: string; mustSees: string };
+}
 
 export default function TripWorkspace() {
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useIsMobile();
+  const { user } = useAuth();
+  const { saveTrip, isSaving } = useSaveTrip();
   const [highlightedStop, setHighlightedStop] = useState<string | null>(null);
-  const [itinerary, setItinerary] = useState<DayPlan[] | null>(null);
   const [showMap, setShowMap] = useState(!isMobile);
   const [focusedDay, setFocusedDay] = useState<number | null>(null);
   const [selectedStop, setSelectedStop] = useState<{ name: string; lat: number; lng: number } | null>(null);
   const [zoomTarget, setZoomTarget] = useState<{ lat: number; lng: number } | null>(null);
+  const [authOpen, setAuthOpen] = useState(false);
+
+  const state = (location.state || {}) as SavedTripState;
+  const tripConfig: TripConfig = { from: state.from || "Unknown", to: state.to || "Unknown", days: state.days || "Weekend", budget: state.budget || "$$", mode: state.mode || "Car" };
+  const [savedTripId, setSavedTripId] = useState<string | undefined>(state.savedTripId);
+  const [itinerary, setItinerary] = useState<DayPlan[] | null>(state.savedItinerary ?? null);
+  const [preferences, setPreferences] = useState<{ interests: string[]; pace: string; mustSees: string } | undefined>(state.savedPreferences);
 
   const handleStopClick = (name: string, lat: number, lng: number) => {
     setSelectedStop({ name, lat, lng });
@@ -29,7 +52,23 @@ export default function TripWorkspace() {
     setZoomTarget({ lat, lng });
   };
 
-  const tripConfig: TripConfig = location.state || { from: "Unknown", to: "Unknown", days: "Weekend", budget: "$$", mode: "Car" };
+  const handleItineraryReady = (newItinerary: DayPlan[]) => {
+    setItinerary(newItinerary);
+  };
+
+  const handleSave = async () => {
+    if (!user) {
+      setAuthOpen(true);
+      return;
+    }
+    if (!itinerary) return;
+    const id = await saveTrip(tripConfig, itinerary, preferences, savedTripId);
+    if (id) setSavedTripId(id);
+  };
+
+  const handlePreferencesUpdate = (prefs: { interests: string[]; pace: string; mustSees: string }) => {
+    setPreferences(prefs);
+  };
 
   return (
     <div className="h-screen flex flex-col bg-background">
@@ -42,11 +81,17 @@ export default function TripWorkspace() {
           {tripConfig.from} → {tripConfig.to} | {tripConfig.days} | {tripConfig.budget}
         </div>
         <div className="flex items-center gap-2">
+          {itinerary && (
+            <Button variant="ghost" size="sm" onClick={handleSave} disabled={isSaving} className="font-body text-xs gap-1">
+              {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+              {savedTripId ? "Saved" : "Save"}
+            </Button>
+          )}
           {itinerary && <ExportTripMenu itinerary={itinerary} tripConfig={tripConfig} />}
           <Button variant="ghost" size="sm" onClick={() => navigate("/")} className="font-body text-xs gap-1">
             <Plus className="w-3.5 h-3.5" /> New Trip
           </Button>
-          <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-body font-bold">U</div>
+          <UserMenu />
         </div>
       </nav>
 
@@ -70,10 +115,13 @@ export default function TripWorkspace() {
                 tripConfig={tripConfig}
                 onHighlightStop={setHighlightedStop}
                 highlightedStop={highlightedStop}
-                onItineraryReady={setItinerary}
+                onItineraryReady={handleItineraryReady}
                 onDayClick={setFocusedDay}
                 onStopClick={handleStopClick}
                 onStopZoom={handleStopZoom}
+                onSaveTrip={handleSave}
+                onPreferencesUpdate={handlePreferencesUpdate}
+                initialItinerary={state.savedItinerary}
               />
             </div>
             <div className="flex-1 relative">
@@ -92,15 +140,20 @@ export default function TripWorkspace() {
                 tripConfig={tripConfig}
                 onHighlightStop={setHighlightedStop}
                 highlightedStop={highlightedStop}
-                onItineraryReady={setItinerary}
+                onItineraryReady={handleItineraryReady}
                 onDayClick={(day) => { setFocusedDay(day); setShowMap(true); }}
                 onStopClick={(name, lat, lng) => { handleStopClick(name, lat, lng); setShowMap(true); }}
                 onStopZoom={(lat, lng) => { handleStopZoom(lat, lng); setShowMap(true); }}
+                onSaveTrip={handleSave}
+                onPreferencesUpdate={handlePreferencesUpdate}
+                initialItinerary={state.savedItinerary}
               />
             </div>
           </>
         )}
       </div>
+
+      <AuthDialog open={authOpen} onOpenChange={setAuthOpen} />
     </div>
   );
 }

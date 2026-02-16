@@ -23,9 +23,12 @@ interface ChatPanelProps {
   onDayClick?: (dayNumber: number) => void;
   onStopClick?: (name: string, lat: number, lng: number) => void;
   onStopZoom?: (lat: number, lng: number) => void;
+  onSaveTrip?: () => void;
+  onPreferencesUpdate?: (prefs: { interests: string[]; pace: string; mustSees: string }) => void;
+  initialItinerary?: DayPlan[];
 }
 
-export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItineraryReady, onDayClick, onStopClick, onStopZoom }: ChatPanelProps) {
+export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItineraryReady, onDayClick, onStopClick, onStopZoom, onSaveTrip, onPreferencesUpdate, initialItinerary }: ChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [phase, setPhase] = useState(0);
   const [isTyping, setIsTyping] = useState(false);
@@ -58,6 +61,21 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
   useEffect(() => {
     if (phase === 0) {
       setPhase(1);
+
+      // If loading a saved trip, skip the conversation flow
+      if (initialItinerary) {
+        setGeneratedItinerary(initialItinerary);
+        onItineraryReady(initialItinerary);
+        addBotMessage("Welcome back! Here's your saved itinerary. Want me to adjust anything?", "text", 300);
+        setTimeout(() => {
+          setMessages(prev => [...prev, { id: "itinerary", sender: "bot", content: "", type: "itinerary" }]);
+          setTimeout(() => {
+            setMessages(prev => [...prev, { id: `actions-${Date.now()}`, sender: "bot", content: "", type: "actions" }]);
+          }, 800);
+        }, 1100);
+        return;
+      }
+
       addBotMessage(
         `Hey! 👋 I'm planning your ${tripConfig.days.toLowerCase()} ${tripConfig.from === tripConfig.to ? `trip exploring ${tripConfig.to}` : `trip from ${tripConfig.from} to ${tripConfig.to}`}. Before I build your itinerary, I want to make sure it's perfect for you.\n\nWhat kinds of experiences are you most into?`,
         "text",
@@ -67,7 +85,7 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
         setMessages(prev => [...prev, { id: "interests", sender: "bot", content: "", type: "interests" }]);
       }, 1400);
     }
-  }, [phase, addBotMessage, tripConfig]);
+  }, [phase, addBotMessage, tripConfig, initialItinerary, onItineraryReady]);
 
   const handleInterestSelect = (selected: string[]) => {
     setSelectedInterests(selected);
@@ -97,6 +115,7 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
     setMustSeesValue(mustSees);
     addUserMessage(mustSees);
     setInputValue("");
+    onPreferencesUpdate?.({ interests: selectedInterests, pace: selectedPace, mustSees });
 
     setTimeout(() => {
       addBotMessage("Perfect. Give me a moment to build something great... 🗺️", "text", 400);
@@ -227,7 +246,7 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
                   ))}
                 </div>
               )}
-              {msg.type === "actions" && <ActionChips onAction={handleActionChip} />}
+              {msg.type === "actions" && <ActionChips onAction={handleActionChip} onSave={onSaveTrip} />}
             </motion.div>
           ))}
         </AnimatePresence>
@@ -311,7 +330,7 @@ function LoadingAnimation() {
   );
 }
 
-function ActionChips({ onAction }: { onAction: (action: string) => void }) {
+function ActionChips({ onAction, onSave }: { onAction: (action: string) => void; onSave?: () => void }) {
   const [showInput, setShowInput] = useState(false);
   const [customText, setCustomText] = useState("");
 
@@ -334,6 +353,14 @@ function ActionChips({ onAction }: { onAction: (action: string) => void }) {
             {action}
           </button>
         ))}
+        {onSave && (
+          <button
+            onClick={onSave}
+            className="px-3 py-1.5 rounded-full text-xs font-body font-medium bg-accent/10 text-accent-foreground hover:bg-accent hover:text-accent-foreground transition-all border border-accent/30"
+          >
+            💾 Save Trip
+          </button>
+        )}
         <button
           onClick={() => setShowInput(!showInput)}
           className="px-3 py-1.5 rounded-full text-xs font-body font-medium bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-all border border-border border-dashed"

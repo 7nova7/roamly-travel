@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { RoamlyLogo } from "@/components/RoamlyLogo";
 import { PlacesAutocomplete } from "@/components/PlacesAutocomplete";
 import { DestinationCarousel } from "@/components/DestinationCarousel";
+import { UserMenu } from "@/components/UserMenu";
 
 const tripLengths = ["Day trip", "Weekend", "Full week", "Custom"];
 const travelModes = [
@@ -35,7 +36,7 @@ export default function LandingPage() {
       <nav className="fixed top-0 w-full z-50 bg-background/80 backdrop-blur-md border-b border-border/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <RoamlyLogo size="md" className="text-primary" />
-          <Button variant="ghost" className="font-body text-sm">Sign In</Button>
+          <UserMenu />
         </div>
       </nav>
 
