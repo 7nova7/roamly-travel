@@ -13,6 +13,8 @@ interface TripMapProps {
   onResetFocus: () => void;
   onStopClick?: (name: string, lat: number, lng: number) => void;
   visible?: boolean;
+  zoomTarget?: { lat: number; lng: number } | null;
+  onZoomComplete?: () => void;
 }
 
 const DAY_COLORS = ["#1B4332", "#2563EB", "#F4A261", "#D6336C", "#6D28D9", "#0D9488", "#EAB308"];
@@ -36,7 +38,7 @@ function getIconSvg(tags: string[]): string {
   return TAG_ICONS.default;
 }
 
-export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDay, onResetFocus, onStopClick, visible = true }: TripMapProps) {
+export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDay, onResetFocus, onStopClick, visible = true, zoomTarget, onZoomComplete }: TripMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<{ [key: string]: { marker: mapboxgl.Marker; el: HTMLDivElement } }>({});
@@ -251,6 +253,14 @@ export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDa
     }
     // Don't reset view when focusedDay becomes null
   }, [focusedDay, mapReady]);
+
+  // Zoom to specific stop
+  useEffect(() => {
+    const map = mapInstance.current;
+    if (!map || !zoomTarget || !mapReady) return;
+    map.flyTo({ center: [zoomTarget.lng, zoomTarget.lat], zoom: 15, duration: 1000 });
+    onZoomComplete?.();
+  }, [zoomTarget, mapReady]);
 
   // Resize on visibility change
   useEffect(() => {

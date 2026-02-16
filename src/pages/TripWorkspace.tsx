@@ -19,9 +19,14 @@ export default function TripWorkspace() {
   const [showMap, setShowMap] = useState(!isMobile);
   const [focusedDay, setFocusedDay] = useState<number | null>(null);
   const [selectedStop, setSelectedStop] = useState<{ name: string; lat: number; lng: number } | null>(null);
+  const [zoomTarget, setZoomTarget] = useState<{ lat: number; lng: number } | null>(null);
 
   const handleStopClick = (name: string, lat: number, lng: number) => {
     setSelectedStop({ name, lat, lng });
+  };
+
+  const handleStopZoom = (lat: number, lng: number) => {
+    setZoomTarget({ lat, lng });
   };
 
   const tripConfig: TripConfig = location.state || { from: "Unknown", to: "Unknown", days: "Weekend", budget: "$$", mode: "Car" };
@@ -68,17 +73,18 @@ export default function TripWorkspace() {
                 onItineraryReady={setItinerary}
                 onDayClick={setFocusedDay}
                 onStopClick={handleStopClick}
+                onStopZoom={handleStopZoom}
               />
             </div>
             <div className="flex-1 relative">
-              <TripMap itinerary={itinerary} highlightedStop={highlightedStop} onHighlightStop={setHighlightedStop} focusedDay={focusedDay} onResetFocus={() => setFocusedDay(null)} onStopClick={handleStopClick} />
+              <TripMap itinerary={itinerary} highlightedStop={highlightedStop} onHighlightStop={setHighlightedStop} focusedDay={focusedDay} onResetFocus={() => setFocusedDay(null)} onStopClick={handleStopClick} zoomTarget={zoomTarget} onZoomComplete={() => setZoomTarget(null)} />
               <DestinationPanel stop={selectedStop} onClose={() => setSelectedStop(null)} />
             </div>
           </>
         ) : (
           <>
             <div className={`flex-1 relative ${showMap ? '' : 'hidden'}`}>
-              <TripMap itinerary={itinerary} highlightedStop={highlightedStop} onHighlightStop={setHighlightedStop} focusedDay={focusedDay} onResetFocus={() => setFocusedDay(null)} onStopClick={handleStopClick} visible={showMap} />
+              <TripMap itinerary={itinerary} highlightedStop={highlightedStop} onHighlightStop={setHighlightedStop} focusedDay={focusedDay} onResetFocus={() => setFocusedDay(null)} onStopClick={handleStopClick} visible={showMap} zoomTarget={zoomTarget} onZoomComplete={() => setZoomTarget(null)} />
               <DestinationPanel stop={selectedStop} onClose={() => setSelectedStop(null)} />
             </div>
             <div className={`flex-1 overflow-hidden ${showMap ? 'hidden' : ''}`}>
@@ -89,6 +95,7 @@ export default function TripWorkspace() {
                 onItineraryReady={setItinerary}
                 onDayClick={(day) => { setFocusedDay(day); setShowMap(true); }}
                 onStopClick={(name, lat, lng) => { handleStopClick(name, lat, lng); setShowMap(true); }}
+                onStopZoom={(lat, lng) => { handleStopZoom(lat, lng); setShowMap(true); }}
               />
             </div>
           </>
