@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, X, Plus } from "lucide-react";
+import { Send, X, Plus, Loader2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { TypingIndicator } from "@/components/TypingIndicator";
@@ -8,6 +8,7 @@ import { INTEREST_OPTIONS, PACE_OPTIONS, type DayPlan, type TripConfig } from "@
 import { DayCard } from "./DayCard";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { getMapboxToken } from "@/lib/mapbox";
 
 interface ChatMessage {
   id: string;
@@ -38,6 +39,9 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [selectedPace, setSelectedPace] = useState("");
   const [mustSeesValue, setMustSeesValue] = useState("");
+  const [addDay, setAddDay] = useState<number | null>(null);
+  const [addForm, setAddForm] = useState({ name: "", time: "", location: "" });
+  const [isAddingStop, setIsAddingStop] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -52,6 +56,15 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
   const addUserMessage = useCallback((content: string) => {
     setMessages(prev => [...prev, { id: `msg-${Date.now()}`, sender: "user", content, type: "text" }]);
   }, []);
+
+  const updateItinerary = useCallback((updater: (prev: DayPlan[]) => DayPlan[]) => {
+    setGeneratedItinerary(prev => {
+      if (!prev) return prev;
+      const next = updater(prev);
+      onItineraryReady(next);
+      return next;
+    });
+  }, [onItineraryReady]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -198,6 +211,85 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
     }, 300);
   };
 
+  const handleDeleteStop = useCallback((dayNumber: number, stopId: string) => {
+    updateItinerary(prev => prev.map(day => (
+      day.day === dayNumber
+        ? { ...day, stops: day.stops.filter(stop => stop.id !== stopId) }
+        : day
+    )));
+    toast({
+      title: "Activity removed",
+      description: `Removed from Day ${dayNumber}.`,
+    });
+  }, [toast, updateItinerary]);
+
+  const openAddStop = useCallback((dayNumber: number) => {
+    setAddDay(dayNumber);
+    setAddForm({ name: "", time: "", location: "" });
+  }, []);
+
+  const closeAddStop = useCallback(() => {
+    setAddDay(null);
+  }, []);
+
+  const handleAddStop = useCallback(async () => {
+    if (!addDay || !addForm.name.trim()) {
+      toast({ title: "Add a name", description: "Please enter an activity name.", variant: "destructive" });
+      return;
+    }
+
+    const baseQuery = (addForm.location.trim() || addForm.name.trim());
+    const query = tripConfig.to && !baseQuery.toLowerCase().includes(tripConfig.to.toLowerCase())
+      ? `${baseQuery} ${tripConfig.to}`
+      : baseQuery;
+
+    setIsAddingStop(true);
+
+    try {
+      const token = await getMapboxToken();
+      const resp = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${token}&limit=1&types=poi,address,place`
+      );
+      if (!resp.ok) throw new Error("Map lookup failed");
+      const data = await resp.json();
+      const feature = data?.features?.[0];
+      if (!feature?.center?.length) {
+        throw new Error("No matching location found. Try a more specific address.");
+      }
+
+      const [lng, lat] = feature.center as [number, number];
+      const newStop = {
+        id: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        time: addForm.time.trim() || "Anytime",
+        name: addForm.name.trim(),
+        description: "Custom activity added by you.",
+        hours: "Hours vary",
+        cost: "Cost varies",
+        lat,
+        lng,
+        tags: ["Custom"],
+      };
+
+      updateItinerary(prev => prev.map(day => (
+        day.day === addDay
+          ? { ...day, stops: [...day.stops, newStop] }
+          : day
+      )));
+
+      setAddDay(null);
+      setAddForm({ name: "", time: "", location: "" });
+      toast({ title: "Activity added", description: `Added to Day ${addDay}.` });
+    } catch (err: any) {
+      toast({
+        title: "Couldn’t add activity",
+        description: err?.message || "Try a more specific place or address.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAddingStop(false);
+    }
+  }, [addDay, addForm, toast, tripConfig.to, updateItinerary]);
+
   return (
     <div className="flex flex-col h-full bg-background">
       <div className="px-4 py-3 border-b border-border flex items-center gap-3 shrink-0">
@@ -251,7 +343,28 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
               {msg.type === "itinerary" && generatedItinerary && (
                 <div className="w-full space-y-4">
                   {generatedItinerary.map(day => (
-                    <DayCard key={day.day} day={day} onHighlightStop={onHighlightStop} highlightedStop={highlightedStop} onDayClick={onDayClick} onStopClick={onStopClick} onStopZoom={onStopZoom} />
+                    <div key={day.day} className="space-y-2">
+                      <DayCard
+                        day={day}
+                        onHighlightStop={onHighlightStop}
+                        highlightedStop={highlightedStop}
+                        onDayClick={onDayClick}
+                        onStopClick={onStopClick}
+                        onStopZoom={onStopZoom}
+                        onDeleteStop={handleDeleteStop}
+                        onAddStop={openAddStop}
+                      />
+                      {addDay === day.day && (
+                        <AddActivityForm
+                          dayNumber={day.day}
+                          value={addForm}
+                          onChange={setAddForm}
+                          onCancel={closeAddStop}
+                          onSubmit={handleAddStop}
+                          isSubmitting={isAddingStop}
+                        />
+                      )}
+                    </div>
                   ))}
                 </div>
               )}
@@ -378,6 +491,77 @@ function LoadingAnimation() {
         <circle cx="110" cy="20" r="4" fill="hsl(var(--accent))" />
       </svg>
       <p className="text-sm font-body text-muted-foreground">Optimizing your route...</p>
+    </div>
+  );
+}
+
+function AddActivityForm({
+  dayNumber,
+  value,
+  onChange,
+  onCancel,
+  onSubmit,
+  isSubmitting,
+}: {
+  dayNumber: number;
+  value: { name: string; time: string; location: string };
+  onChange: (next: { name: string; time: string; location: string }) => void;
+  onCancel: () => void;
+  onSubmit: () => void;
+  isSubmitting: boolean;
+}) {
+  return (
+    <div className="w-full bg-card border border-border/60 rounded-2xl p-3 shadow-sm">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs font-body font-semibold text-foreground">Add activity to Day {dayNumber}</p>
+        <button
+          onClick={onCancel}
+          className="p-1.5 rounded-lg hover:bg-secondary transition-colors"
+          aria-label="Close add activity"
+        >
+          <X className="w-3.5 h-3.5 text-muted-foreground" />
+        </button>
+      </div>
+      <div className="grid gap-2">
+        <input
+          value={value.name}
+          onChange={(e) => onChange({ ...value, name: e.target.value })}
+          placeholder="Activity name (required)"
+          className="w-full rounded-xl border border-border bg-card px-3 py-2 text-xs font-body focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+        <input
+          value={value.time}
+          onChange={(e) => onChange({ ...value, time: e.target.value })}
+          placeholder="Time (optional, e.g., 2:00 PM)"
+          className="w-full rounded-xl border border-border bg-card px-3 py-2 text-xs font-body focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+        <input
+          value={value.location}
+          onChange={(e) => onChange({ ...value, location: e.target.value })}
+          placeholder="Location or address (for map pin)"
+          className="w-full rounded-xl border border-border bg-card px-3 py-2 text-xs font-body focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+      </div>
+      <div className="flex items-center gap-2 mt-3">
+        <Button
+          onClick={onSubmit}
+          disabled={isSubmitting || !value.name.trim()}
+          size="sm"
+          className="rounded-xl bg-accent text-accent-foreground hover:bg-accent/90 text-xs font-body gap-2"
+        >
+          {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+          Add activity
+        </Button>
+        <button
+          onClick={onCancel}
+          className="text-xs font-body text-muted-foreground hover:text-foreground transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
+      <p className="mt-2 text-[10px] font-body text-muted-foreground">
+        Tip: add a specific place or address for best map results.
+      </p>
     </div>
   );
 }

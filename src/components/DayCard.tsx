@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Clock, Car, DollarSign, X, RefreshCw, MapPin } from "lucide-react";
+import { Clock, Car, DollarSign, X, MapPin, Plus } from "lucide-react";
 import type { DayPlan } from "@/data/demoTrip";
 
 interface DayCardProps {
@@ -9,9 +9,11 @@ interface DayCardProps {
   onDayClick?: (dayNumber: number) => void;
   onStopClick?: (name: string, lat: number, lng: number) => void;
   onStopZoom?: (lat: number, lng: number) => void;
+  onDeleteStop?: (dayNumber: number, stopId: string) => void;
+  onAddStop?: (dayNumber: number) => void;
 }
 
-export function DayCard({ day, onHighlightStop, highlightedStop, onDayClick, onStopClick, onStopZoom }: DayCardProps) {
+export function DayCard({ day, onHighlightStop, highlightedStop, onDayClick, onStopClick, onStopZoom, onDeleteStop, onAddStop }: DayCardProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 15 }}
@@ -49,7 +51,7 @@ export function DayCard({ day, onHighlightStop, highlightedStop, onDayClick, onS
               onMouseEnter={() => onHighlightStop(stop.id)}
               onMouseLeave={() => onHighlightStop(null)}
               onClick={() => onStopZoom?.(stop.lat, stop.lng)}
-              className={`flex gap-3 p-2.5 rounded-xl cursor-pointer transition-all ${
+              className={`group flex gap-3 p-2.5 rounded-xl cursor-pointer transition-all ${
                 highlightedStop === stop.id ? "bg-accent/10 shadow-sm" : "hover:bg-secondary/50"
               }`}
             >
@@ -74,17 +76,29 @@ export function DayCard({ day, onHighlightStop, highlightedStop, onDayClick, onS
                   ))}
                 </div>
               </div>
-              <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button className="p-1 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
+              <div className="flex gap-1 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDeleteStop?.(day.day, stop.id); }}
+                  className="p-1 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                  aria-label="Remove activity"
+                  title="Remove activity"
+                >
                   <X className="w-3 h-3" />
-                </button>
-                <button className="p-1 rounded-md hover:bg-accent/10 text-muted-foreground hover:text-accent transition-colors">
-                  <RefreshCw className="w-3 h-3" />
                 </button>
               </div>
             </div>
           </div>
         ))}
+        {onAddStop && (
+          <div className="pt-2">
+            <button
+              onClick={() => onAddStop(day.day)}
+              className="w-full flex items-center justify-center gap-2 text-xs font-body font-medium px-3 py-2 rounded-xl border border-dashed border-border text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" /> Add activity
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Footer */}

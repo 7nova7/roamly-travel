@@ -153,13 +153,12 @@ export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDa
         const el = document.createElement("div");
         el.className = "mapbox-custom-marker";
         el.style.cursor = "pointer";
-        el.style.transition = "transform 0.2s ease";
         el.style.zIndex = "10";
 
         const iconPaths = getIconSvg(stop.tags);
 
         el.innerHTML = `
-          <div style="display:flex;flex-direction:column;align-items:center;">
+          <div class="marker-wrapper" style="display:flex;flex-direction:column;align-items:center;transition:transform 0.2s ease;">
             <div class="marker-pill" style="
               display:flex;align-items:center;gap:6px;
               background:white;border:2px solid transparent;border-radius:20px;
@@ -284,7 +283,10 @@ export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDa
           pill.style.boxShadow = isHighlighted ? "0 4px 16px rgba(0,0,0,0.25)" : "0 2px 8px rgba(0,0,0,0.18)";
         }
         ref.el.style.zIndex = isHighlighted ? "100" : "10";
-        ref.el.style.transform = isHighlighted ? "scale(1.1)" : "scale(1)";
+        const wrapper = ref.el.querySelector(".marker-wrapper") as HTMLElement | null;
+        if (wrapper) {
+          wrapper.style.transform = isHighlighted ? "scale(1.1)" : "scale(1)";
+        }
       });
     });
   }, [highlightedStop, itinerary]);
