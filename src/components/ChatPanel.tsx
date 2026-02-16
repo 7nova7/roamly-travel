@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, X, Plus, Loader2 } from "lucide-react";
+import { Send, X, Plus, Loader2, ArrowRight, Compass, Sparkles } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { TypingIndicator } from "@/components/TypingIndicator";
@@ -34,6 +34,7 @@ interface ChatPanelProps {
 export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItineraryReady, onDayClick, onStopClick, onStopZoom, onSaveTrip, onPreferencesUpdate, initialItinerary, reserveBottomSpace = false }: ChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [phase, setPhase] = useState(0);
+  const [chatInitiated, setChatInitiated] = useState(Boolean(initialItinerary));
   const [isTyping, setIsTyping] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [generatedItinerary, setGeneratedItinerary] = useState<DayPlan[] | null>(null);
@@ -67,6 +68,11 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
     });
   }, [onItineraryReady]);
 
+  const startConversation = useCallback(() => {
+    if (chatInitiated) return;
+    setChatInitiated(true);
+  }, [chatInitiated]);
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -74,39 +80,47 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
   }, [messages, isTyping]);
 
   useEffect(() => {
-    if (phase === 0) {
-      setPhase(1);
-
-      // If loading a saved trip, skip the conversation flow
-      if (initialItinerary) {
-        setGeneratedItinerary(initialItinerary);
-        onItineraryReady(initialItinerary);
-        addBotMessage("Welcome back! Here's your saved itinerary. Want me to adjust anything?", "text", 300);
-        setTimeout(() => {
-          setMessages(prev => [...prev, { id: "itinerary", sender: "bot", content: "", type: "itinerary" }]);
-          setTimeout(() => {
-            setMessages(prev => [...prev, { id: `actions-${Date.now()}`, sender: "bot", content: "", type: "actions" }]);
-          }, 800);
-        }, 1100);
-        return;
-      }
-
-      const tripDescription = tripConfig.startDate && tripConfig.endDate
-        ? `trip from ${format(parseISO(tripConfig.startDate), "MMM d")} to ${format(parseISO(tripConfig.endDate), "MMM d")}`
-        : `${tripConfig.days.toLowerCase()} trip`;
-      const destination = tripConfig.from === tripConfig.to
-        ? `exploring ${tripConfig.to}`
-        : `from ${tripConfig.from} to ${tripConfig.to}`;
-      addBotMessage(
-        `Hey! 👋 I'm planning your ${tripDescription} ${destination}. Before I build your itinerary, I want to make sure it's perfect for you.\n\nWhat kinds of experiences are you most into?`,
-        "text",
-        500
-      );
-      setTimeout(() => {
-        setMessages(prev => [...prev, { id: "interests", sender: "bot", content: "", type: "interests" }]);
-      }, 1400);
+    if (initialItinerary && !chatInitiated) {
+      setChatInitiated(true);
     }
-  }, [phase, addBotMessage, tripConfig, initialItinerary, onItineraryReady]);
+  }, [initialItinerary, chatInitiated]);
+
+  useEffect(() => {
+    if (!chatInitiated || phase !== 0) {
+      return;
+    }
+
+    setPhase(1);
+
+    // If loading a saved trip, skip the conversation flow
+    if (initialItinerary) {
+      setGeneratedItinerary(initialItinerary);
+      onItineraryReady(initialItinerary);
+      addBotMessage("Welcome back! Here's your saved itinerary. Want me to adjust anything?", "text", 300);
+      setTimeout(() => {
+        setMessages(prev => [...prev, { id: "itinerary", sender: "bot", content: "", type: "itinerary" }]);
+        setTimeout(() => {
+          setMessages(prev => [...prev, { id: `actions-${Date.now()}`, sender: "bot", content: "", type: "actions" }]);
+        }, 800);
+      }, 1100);
+      return;
+    }
+
+    const tripDescription = tripConfig.startDate && tripConfig.endDate
+      ? `trip from ${format(parseISO(tripConfig.startDate), "MMM d")} to ${format(parseISO(tripConfig.endDate), "MMM d")}`
+      : `${tripConfig.days.toLowerCase()} trip`;
+    const destination = tripConfig.from === tripConfig.to
+      ? `exploring ${tripConfig.to}`
+      : `from ${tripConfig.from} to ${tripConfig.to}`;
+    addBotMessage(
+      `Hey! 👋 I'm planning your ${tripDescription} ${destination}. Before I build your itinerary, I want to make sure it's perfect for you.\n\nWhat kinds of experiences are you most into?`,
+      "text",
+      500
+    );
+    setTimeout(() => {
+      setMessages(prev => [...prev, { id: "interests", sender: "bot", content: "", type: "interests" }]);
+    }, 1400);
+  }, [chatInitiated, phase, addBotMessage, tripConfig, initialItinerary, onItineraryReady]);
 
   const handleInterestSelect = (selected: string[]) => {
     setSelectedInterests(selected);
@@ -305,86 +319,171 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
         ref={scrollRef}
         className={`flex-1 overflow-y-auto px-4 py-4 space-y-4 custom-scrollbar ${reserveBottomSpace ? "pb-24" : ""}`}
       >
-        <AnimatePresence>
-          {messages.map((msg) => (
-            <motion.div
-              key={msg.id}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-              className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
-            >
-              {msg.sender === "bot" && msg.type === "text" && (
-                <div className="max-w-[85%] bg-secondary rounded-2xl rounded-tl-md px-4 py-3">
-                  <p className="text-sm font-body text-foreground whitespace-pre-line">{msg.content}</p>
-                </div>
-              )}
-              {msg.sender === "user" && (
-                <div className="max-w-[85%] bg-primary text-primary-foreground rounded-2xl rounded-tr-md px-4 py-3">
-                  <p className="text-sm font-body">{msg.content}</p>
-                </div>
-              )}
-              {msg.type === "interests" && <InterestPicker onSelect={handleInterestSelect} />}
-              {msg.type === "pace" && <PacePicker onSelect={handlePaceSelect} />}
-              {msg.type === "input" && (
-                <div className="w-full max-w-[85%]">
-                  <div className="flex gap-2">
-                    <input
-                      value={inputValue}
-                      onChange={e => setInputValue(e.target.value)}
-                      onKeyDown={e => e.key === "Enter" && handleSpotsSubmit()}
-                      placeholder="e.g., Golden Gate Bridge, Yosemite..."
-                      className="flex-1 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-body focus:outline-none focus:ring-2 focus:ring-ring"
-                    />
-                    <Button onClick={handleSpotsSubmit} size="icon" className="rounded-xl bg-accent text-accent-foreground hover:bg-accent/90 shrink-0">
-                      <Send className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  <button onClick={handleSpotsSubmit} className="text-xs text-muted-foreground font-body mt-2 hover:underline">Skip — surprise me!</button>
-                </div>
-              )}
-              {msg.type === "loading" && <LoadingAnimation />}
-              {msg.type === "itinerary" && generatedItinerary && (
-                <div className="w-full space-y-4">
-                  {generatedItinerary.map(day => (
-                    <div key={day.day} className="space-y-2">
-                      <DayCard
-                        day={day}
-                        onHighlightStop={onHighlightStop}
-                        highlightedStop={highlightedStop}
-                        onDayClick={onDayClick}
-                        onStopClick={onStopClick}
-                        onStopZoom={onStopZoom}
-                        onDeleteStop={handleDeleteStop}
-                        onAddStop={openAddStop}
-                      />
-                      {addDay === day.day && (
-                        <AddActivityForm
-                          dayNumber={day.day}
-                          value={addForm}
-                          onChange={setAddForm}
-                          onCancel={closeAddStop}
-                          onSubmit={handleAddStop}
-                          isSubmitting={isAddingStop}
-                        />
-                      )}
+        {!chatInitiated ? (
+          <ChatStartHook
+            destination={tripConfig.to}
+            isRoundTrip={tripConfig.from === tripConfig.to}
+            onStart={startConversation}
+          />
+        ) : (
+          <>
+            <AnimatePresence>
+              {messages.map((msg) => (
+                <motion.div
+                  key={msg.id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
+                >
+                  {msg.sender === "bot" && msg.type === "text" && (
+                    <div className="max-w-[85%] bg-secondary rounded-2xl rounded-tl-md px-4 py-3">
+                      <p className="text-sm font-body text-foreground whitespace-pre-line">{msg.content}</p>
                     </div>
-                  ))}
+                  )}
+                  {msg.sender === "user" && (
+                    <div className="max-w-[85%] bg-primary text-primary-foreground rounded-2xl rounded-tr-md px-4 py-3">
+                      <p className="text-sm font-body">{msg.content}</p>
+                    </div>
+                  )}
+                  {msg.type === "interests" && <InterestPicker onSelect={handleInterestSelect} />}
+                  {msg.type === "pace" && <PacePicker onSelect={handlePaceSelect} />}
+                  {msg.type === "input" && (
+                    <div className="w-full max-w-[85%]">
+                      <div className="flex gap-2">
+                        <input
+                          value={inputValue}
+                          onChange={e => setInputValue(e.target.value)}
+                          onKeyDown={e => e.key === "Enter" && handleSpotsSubmit()}
+                          placeholder="e.g., Golden Gate Bridge, Yosemite..."
+                          className="flex-1 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-body focus:outline-none focus:ring-2 focus:ring-ring"
+                        />
+                        <Button onClick={handleSpotsSubmit} size="icon" className="rounded-xl bg-accent text-accent-foreground hover:bg-accent/90 shrink-0">
+                          <Send className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      <button onClick={handleSpotsSubmit} className="text-xs text-muted-foreground font-body mt-2 hover:underline">Skip — surprise me!</button>
+                    </div>
+                  )}
+                  {msg.type === "loading" && <LoadingAnimation />}
+                  {msg.type === "itinerary" && generatedItinerary && (
+                    <div className="w-full space-y-4">
+                      {generatedItinerary.map(day => (
+                        <div key={day.day} className="space-y-2">
+                          <DayCard
+                            day={day}
+                            onHighlightStop={onHighlightStop}
+                            highlightedStop={highlightedStop}
+                            onDayClick={onDayClick}
+                            onStopClick={onStopClick}
+                            onStopZoom={onStopZoom}
+                            onDeleteStop={handleDeleteStop}
+                            onAddStop={openAddStop}
+                          />
+                          {addDay === day.day && (
+                            <AddActivityForm
+                              dayNumber={day.day}
+                              value={addForm}
+                              onChange={setAddForm}
+                              onCancel={closeAddStop}
+                              onSubmit={handleAddStop}
+                              isSubmitting={isAddingStop}
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {msg.type === "actions" && <ActionChips onAction={handleActionChip} onSave={onSaveTrip} />}
+                </motion.div>
+              ))}
+            </AnimatePresence>
+            {isTyping && (
+              <div className="flex justify-start">
+                <div className="bg-secondary rounded-2xl rounded-tl-md">
+                  <TypingIndicator />
                 </div>
-              )}
-              {msg.type === "actions" && <ActionChips onAction={handleActionChip} onSave={onSaveTrip} />}
-            </motion.div>
-          ))}
-        </AnimatePresence>
-        {isTyping && (
-          <div className="flex justify-start">
-            <div className="bg-secondary rounded-2xl rounded-tl-md">
-              <TypingIndicator />
-            </div>
-          </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
+  );
+}
+
+function ChatStartHook({
+  destination,
+  isRoundTrip,
+  onStart,
+}: {
+  destination: string;
+  isRoundTrip: boolean;
+  onStart: () => void;
+}) {
+  const previewPrompts = isRoundTrip
+    ? [
+      "Find hidden gems locals actually go to",
+      "Balance iconic spots with calmer neighborhoods",
+      "Build food + culture without long lines",
+    ]
+    : [
+      "Plan smart routes with less backtracking",
+      "Mix landmarks, food, and one wow moment",
+      "Keep it flexible but still structured",
+    ];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+      className="mx-auto mt-10 w-full max-w-[92%]"
+    >
+      <div className="relative overflow-hidden rounded-3xl border border-border/70 bg-card p-5 shadow-sm">
+        <div className="pointer-events-none absolute -top-12 right-0 h-36 w-36 rounded-full bg-accent/15 blur-2xl" />
+        <div className="pointer-events-none absolute -bottom-14 -left-4 h-32 w-32 rounded-full bg-primary/10 blur-2xl" />
+
+        <div className="relative space-y-4">
+          <div className="inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-1 text-[11px] font-body font-semibold uppercase tracking-wide text-muted-foreground">
+            <Sparkles className="h-3 w-3 text-accent" />
+            Trip Copilot Ready
+          </div>
+
+          <div>
+            <h3 className="text-xl font-body font-bold text-foreground leading-tight">
+              Where should we take you next?
+            </h3>
+            <p className="mt-1 text-sm font-body text-muted-foreground">
+              I&apos;ll tailor a route for {destination} with timing, map pins, and editable stops.
+            </p>
+          </div>
+
+          <div className="space-y-2 rounded-2xl border border-border/60 bg-background/60 p-3">
+            {previewPrompts.map((prompt, idx) => (
+              <motion.div
+                key={prompt}
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.12 * idx, duration: 0.35 }}
+                className="flex items-center gap-2 text-xs font-body text-muted-foreground"
+              >
+                <Compass className="h-3.5 w-3.5 text-primary" />
+                <span>{prompt}</span>
+              </motion.div>
+            ))}
+          </div>
+
+          <Button
+            onClick={onStart}
+            className="w-full rounded-2xl bg-accent text-accent-foreground hover:bg-accent/90 font-body text-sm h-11 gap-2"
+          >
+            Start Chat Planning
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    </motion.div>
   );
 }
 

@@ -1,10 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import { Car, Plane, TrainFront, DollarSign, ArrowRight, CalendarIcon, Map } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { ArrowRight, CalendarIcon, Map, Check } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RoamlyLogo } from "@/components/RoamlyLogo";
@@ -16,10 +15,11 @@ import type { DateRange } from "react-day-picker";
 import { CityImage } from "@/components/CityImage";
 
 const tripLengths = ["Day trip", "Weekend", "Full week"];
-const travelModes = [
-{ icon: Plane, label: "Plane" },
-{ icon: Car, label: "Car" },
-{ icon: TrainFront, label: "Train" }];
+const budgetVibes = [
+  { label: "Backpack & street snacks", hint: "Finds free gems and local cheap eats." },
+  { label: "Main character moments", hint: "A balanced mix of splurge and save." },
+  { label: "Suite life energy", hint: "Premium picks, iconic spots, less compromise." },
+];
 
 
 
@@ -29,11 +29,13 @@ export default function LandingPage() {
   const isMobile = useIsMobile();
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [plannerStep, setPlannerStep] = useState<1 | 2>(1);
+  const [plannerStarted, setPlannerStarted] = useState(false);
+  const [roadTrip, setRoadTrip] = useState(false);
   const [tripLength, setTripLength] = useState("Weekend");
   const [dateMode, setDateMode] = useState<"flexible" | "specific">("flexible");
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
-  const [budgetAmount, setBudgetAmount] = useState("");
-  const [mode, setMode] = useState("Car");
+  const [budgetVibe, setBudgetVibe] = useState(budgetVibes[1].label);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -46,15 +48,20 @@ export default function LandingPage() {
   }, []);
 
   const handlePlanTrip = () => {
-    if (!from.trim() || !to.trim()) return;
-    const budget = budgetAmount.trim() ? `$${budgetAmount.trim()}` : "No limit";
+    if (!to.trim()) return;
+    if (roadTrip && !from.trim()) return;
+
+    const origin = roadTrip ? from.trim() : to.trim();
+    const destination = to.trim();
+    const budget = budgetVibe;
+    const mode = roadTrip ? "Car" : "Plane";
 
     if (dateMode === "specific" && dateRange?.from && dateRange?.to) {
       const numDays = differenceInDays(dateRange.to, dateRange.from) + 1;
       navigate("/plan", {
         state: {
-          from: from.trim(),
-          to: to.trim(),
+          from: origin,
+          to: destination,
           days: String(numDays),
           budget,
           mode,
@@ -63,11 +70,12 @@ export default function LandingPage() {
         }
       });
     } else {
-      navigate("/plan", { state: { from: from.trim(), to: to.trim(), days: tripLength, budget, mode } });
+      navigate("/plan", { state: { from: origin, to: destination, days: tripLength, budget, mode } });
     }
   };
 
-  const canSubmit = from.trim() && to.trim() && (dateMode === "flexible" || dateRange?.from && dateRange?.to);
+  const canMoveToStepTwo = to.trim() && (!roadTrip || from.trim());
+  const canSubmit = canMoveToStepTwo && (dateMode === "flexible" || dateRange?.from && dateRange?.to);
 
   return (
     <div className="min-h-screen bg-background">
@@ -117,131 +125,218 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
-            className="bg-card/90 backdrop-blur-xl rounded-2xl shadow-xl border border-border/60 p-6 sm:p-8 max-w-3xl mx-auto text-left">
-
-            {/* From / To with Places Autocomplete */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-              <div>
-                <label className="text-xs font-body font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">From</label>
-                <PlacesAutocomplete value={from} onChange={setFrom} placeholder="Starting point" iconClassName="text-muted-foreground" />
+            className="bg-white/12 backdrop-blur-2xl rounded-2xl shadow-[0_24px_80px_rgba(0,0,0,0.35)] border border-white/25 p-6 sm:p-8 max-w-3xl mx-auto text-left">
+            {plannerStarted && (
+              <div className="flex items-center justify-end mb-4">
+                <p className="text-xs font-body text-white/85">Step {plannerStep} of 2</p>
               </div>
-              <div>
-                <label className="text-xs font-body font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">To</label>
-                <PlacesAutocomplete value={to} onChange={setTo} placeholder="Destination" iconClassName="text-accent" />
-              </div>
-            </div>
+            )}
 
-            {/* When are you going? */}
-            <div className="mb-6">
-              <label className="text-xs font-body font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">When are you going?</label>
-              <div className="flex gap-2 mb-3">
-                {(["flexible", "specific"] as const).map((m) =>
-                <button
-                  key={m}
-                  onClick={() => setDateMode(m)}
-                  className={`px-4 py-2 rounded-full text-sm font-body font-medium transition-all ${
-                  dateMode === m ?
-                  "bg-primary text-primary-foreground shadow-md" :
-                  "bg-secondary text-secondary-foreground hover:bg-secondary/70"}`
-                  }>
+            <AnimatePresence mode="wait">
+              {!plannerStarted ? (
+                <motion.div
+                  key="planner-hook"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -12 }}
+                  transition={{ duration: 0.3 }}
+                  className="relative overflow-hidden rounded-2xl border border-white/30 bg-white/10 backdrop-blur-xl p-6 sm:p-8"
+                >
+                  <div className="pointer-events-none absolute -right-8 -top-10 h-36 w-36 rounded-full bg-accent/10 blur-2xl" />
+                  <div className="pointer-events-none absolute -bottom-14 -left-8 h-32 w-32 rounded-full bg-primary/10 blur-2xl" />
 
-                    {m === "flexible" ? "Flexible" : "Specific Dates"}
-                  </button>
-                )}
-              </div>
+                  <div className="relative flex flex-col items-center text-center">
+                    <h3 className="text-3xl sm:text-4xl font-display font-semibold text-white">
+                      Where is your next adventure?
+                    </h3>
+                    <p className="mt-3 text-base font-body text-white/80 max-w-xl">
+                      Start a quick chat and I&apos;ll build a route that matches your timing, style, and must-see spots.
+                    </p>
 
-              {dateMode === "flexible" ?
-              <div className="flex flex-wrap gap-2">
-                  {tripLengths.map((t) =>
-                <button
-                  key={t}
-                  onClick={() => setTripLength(t)}
-                  className={`px-4 py-2 rounded-full text-sm font-body font-medium transition-all ${
-                  tripLength === t ?
-                  "bg-accent text-accent-foreground shadow-sm" :
-                  "bg-secondary text-secondary-foreground hover:bg-secondary/70"}`
-                  }>
+                    <Button
+                      onClick={() => {
+                        setPlannerStarted(true);
+                        setPlannerStep(1);
+                      }}
+                      className="mt-6 h-11 px-6 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 font-body font-semibold text-sm mx-auto"
+                    >
+                      Start chatting <ArrowRight className="ml-2 w-4 h-4" />
+                    </Button>
+                  </div>
+                </motion.div>
+              ) : plannerStep === 1 ? (
+                <motion.div
+                  key="planner-step-one"
+                  initial={{ opacity: 0, x: 24 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -24 }}
+                  transition={{ duration: 0.25 }}
+                  className="space-y-5"
+                >
+                  <div className="rounded-2xl border border-border/70 bg-background/80 p-4 sm:p-5">
+                    <p className="text-lg sm:text-xl font-display font-semibold text-primary mb-3">Where is your next adventure?</p>
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      transition={{ duration: 0.28 }}
+                      className="overflow-hidden"
+                    >
+                      <PlacesAutocomplete value={to} onChange={setTo} placeholder="Enter a city or destination" iconClassName="text-accent" />
+                    </motion.div>
 
-                      {t}
+                    <button
+                      onClick={() => {
+                        setRoadTrip((prev) => !prev);
+                      }}
+                      className="mt-3 inline-flex items-center gap-2 text-xs font-body text-foreground"
+                      type="button"
+                    >
+                      <span className={`w-4 h-4 rounded border flex items-center justify-center ${roadTrip ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card"}`}>
+                        {roadTrip ? <Check className="w-3 h-3" /> : null}
+                      </span>
+                      Road trip
                     </button>
-                )}
-                </div> :
+                  </div>
 
-              <Popover>
-                  <PopoverTrigger asChild>
-                    <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-card text-sm font-body font-medium text-foreground hover:bg-secondary/50 transition-all w-full sm:w-auto">
-                      <CalendarIcon className="w-4 h-4 text-muted-foreground" />
-                      {dateRange?.from && dateRange?.to ?
-                    <span>
-                          {format(dateRange.from, "MMM d")} – {format(dateRange.to, "MMM d")}
-                          <span className="text-muted-foreground ml-1">
-                            ({differenceInDays(dateRange.to, dateRange.from)} nights)
-                          </span>
-                        </span> :
+                  <AnimatePresence>
+                    {roadTrip && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -6, height: 0 }}
+                        animate={{ opacity: 1, y: 0, height: "auto" }}
+                        exit={{ opacity: 0, y: -6, height: 0 }}
+                        transition={{ duration: 0.22 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="rounded-2xl border border-border/70 bg-background/80 p-4 sm:p-5">
+                          <label className="text-xs font-body font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">Where are you starting from?</label>
+                          <PlacesAutocomplete value={from} onChange={setFrom} placeholder="Starting city" iconClassName="text-muted-foreground" />
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
-                    <span className="text-muted-foreground">Pick your dates</span>
-                    }
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                    mode="range"
-                    selected={dateRange}
-                    onSelect={setDateRange}
-                    numberOfMonths={isMobile ? 1 : 2}
-                    disabled={{ before: new Date() }} />
+                  <Button
+                    onClick={() => setPlannerStep(2)}
+                    disabled={!canMoveToStepTwo}
+                    className="w-full h-12 text-base font-body font-semibold bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    Continue <ArrowRight className="ml-2 w-4 h-4" />
+                  </Button>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="planner-step-two"
+                  initial={{ opacity: 0, x: 24 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -24 }}
+                  transition={{ duration: 0.25 }}
+                  className="space-y-6"
+                >
+                  <div>
+                    <label className="text-xs font-body font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">When are you going?</label>
+                    <div className="flex gap-2 mb-3">
+                      {(["flexible", "specific"] as const).map((m) => (
+                        <button
+                          key={m}
+                          onClick={() => setDateMode(m)}
+                          className={`px-4 py-2 rounded-full text-sm font-body font-medium transition-all ${
+                            dateMode === m
+                              ? "bg-primary text-primary-foreground shadow-md"
+                              : "bg-secondary text-secondary-foreground hover:bg-secondary/70"
+                          }`}
+                        >
+                          {m === "flexible" ? "Flexible" : "Specific dates"}
+                        </button>
+                      ))}
+                    </div>
 
-                  </PopoverContent>
-                </Popover>
-              }
-            </div>
+                    {dateMode === "specific" ? (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-card text-sm font-body font-medium text-foreground hover:bg-secondary/50 transition-all w-full sm:w-auto">
+                            <CalendarIcon className="w-4 h-4 text-muted-foreground" />
+                            {dateRange?.from && dateRange?.to ? (
+                              <span>
+                                {format(dateRange.from, "MMM d")} - {format(dateRange.to, "MMM d")}
+                                <span className="text-muted-foreground ml-1">
+                                  ({differenceInDays(dateRange.to, dateRange.from)} nights)
+                                </span>
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">Pick your dates</span>
+                            )}
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="range"
+                            selected={dateRange}
+                            onSelect={setDateRange}
+                            numberOfMonths={isMobile ? 1 : 2}
+                            disabled={{ before: new Date() }}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {tripLengths.map((t) => (
+                          <button
+                            key={t}
+                            onClick={() => setTripLength(t)}
+                            className={`px-4 py-2 rounded-full text-sm font-body font-medium transition-all ${
+                              tripLength === t
+                                ? "bg-accent text-accent-foreground shadow-sm"
+                                : "bg-secondary text-secondary-foreground hover:bg-secondary/70"
+                            }`}
+                          >
+                            {t}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
-            {/* Budget - Dollar Input */}
-            <div className="mb-6">
-              <label className="text-xs font-body font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">Budget</label>
-              <div className="relative max-w-[200px]">
-                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  type="number"
-                  value={budgetAmount}
-                  onChange={(e) => setBudgetAmount(e.target.value)}
-                  className="pl-9 font-body"
-                  placeholder="e.g. 500"
-                  min="0" />
+                  {dateMode === "flexible" && (
+                    <div>
+                      <label className="text-xs font-body font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">Budget vibe</label>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        {budgetVibes.map((option) => (
+                          <button
+                            key={option.label}
+                            onClick={() => setBudgetVibe(option.label)}
+                            className={`rounded-xl border p-3 text-left transition-all ${
+                              budgetVibe === option.label
+                                ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                                : "bg-card border-border hover:bg-secondary/50"
+                            }`}
+                          >
+                            <p className="text-xs font-body font-semibold">{option.label}</p>
+                            <p className={`text-[11px] font-body mt-1 ${budgetVibe === option.label ? "text-primary-foreground/80" : "text-muted-foreground"}`}>{option.hint}</p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
-              </div>
-              <p className="text-xs text-muted-foreground font-body mt-1.5">Leave empty for no limit</p>
-            </div>
-
-            {/* Travel Mode */}
-            <div className="mb-8">
-              <label className="text-xs font-body font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">Travel Mode</label>
-              <div className="flex gap-3">
-                {travelModes.map((m) =>
-                <button
-                  key={m.label}
-                  onClick={() => setMode(m.label)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-body font-medium transition-all ${
-                  mode === m.label ?
-                  "bg-primary text-primary-foreground shadow-md" :
-                  "bg-secondary text-secondary-foreground hover:bg-secondary/70"}`
-                  }>
-
-                    <m.icon className="w-4 h-4" />
-                    {m.label}
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* CTA */}
-            <Button
-              onClick={handlePlanTrip}
-              disabled={!canSubmit}
-              className="w-full h-14 text-lg font-body font-semibold bg-accent text-accent-foreground hover:bg-accent/90 rounded-xl transition-all hover:scale-[1.02] hover:shadow-lg active:scale-[0.98] animate-pulse-glow disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100">
-
-              Plan My Trip <ArrowRight className="ml-2 w-5 h-5" />
-            </Button>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      onClick={() => setPlannerStep(1)}
+                      variant="outline"
+                      className="h-12 px-5 font-body"
+                    >
+                      Back
+                    </Button>
+                    <Button
+                      onClick={handlePlanTrip}
+                      disabled={!canSubmit}
+                      className="flex-1 h-12 text-base font-body font-semibold bg-accent text-accent-foreground hover:bg-accent/90 rounded-xl transition-all hover:scale-[1.01] disabled:opacity-50 disabled:hover:scale-100"
+                    >
+                      Plan My Trip <ArrowRight className="ml-2 w-4 h-4" />
+                    </Button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         </div>
       </section>
