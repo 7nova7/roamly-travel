@@ -48,10 +48,9 @@ export default function LandingPage() {
           loop
           playsInline
           preload="auto"
+          src="/videos/hero-bg.mp4"
           className="absolute inset-0 w-full h-full object-cover -z-20"
-        >
-          <source src="/videos/hero-bg.mp4" type="video/mp4" />
-        </video>
+        />
         <div className="absolute inset-0 bg-black/50 -z-10" />
 
         <div className="max-w-4xl mx-auto text-center">
