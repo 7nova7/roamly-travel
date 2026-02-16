@@ -27,6 +27,8 @@ export interface TripConfig {
   days: string;
   budget: string;
   mode: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 export const INTEREST_OPTIONS = [

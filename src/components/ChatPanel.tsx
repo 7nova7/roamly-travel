@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send } from "lucide-react";
+import { Send, X, Plus } from "lucide-react";
+import { format, parseISO } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { TypingIndicator } from "@/components/TypingIndicator";
 import { INTEREST_OPTIONS, PACE_OPTIONS, type DayPlan, type TripConfig } from "@/data/demoTrip";
@@ -76,8 +77,14 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
         return;
       }
 
+      const tripDescription = tripConfig.startDate && tripConfig.endDate
+        ? `trip from ${format(parseISO(tripConfig.startDate), "MMM d")} to ${format(parseISO(tripConfig.endDate), "MMM d")}`
+        : `${tripConfig.days.toLowerCase()} trip`;
+      const destination = tripConfig.from === tripConfig.to
+        ? `exploring ${tripConfig.to}`
+        : `from ${tripConfig.from} to ${tripConfig.to}`;
       addBotMessage(
-        `Hey! 👋 I'm planning your ${tripConfig.days.toLowerCase()} ${tripConfig.from === tripConfig.to ? `trip exploring ${tripConfig.to}` : `trip from ${tripConfig.from} to ${tripConfig.to}`}. Before I build your itinerary, I want to make sure it's perfect for you.\n\nWhat kinds of experiences are you most into?`,
+        `Hey! 👋 I'm planning your ${tripDescription} ${destination}. Before I build your itinerary, I want to make sure it's perfect for you.\n\nWhat kinds of experiences are you most into?`,
         "text",
         500
       );
@@ -135,6 +142,8 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
           days: tripConfig.days,
           budget: tripConfig.budget,
           mode: tripConfig.mode,
+          startDate: tripConfig.startDate,
+          endDate: tripConfig.endDate,
           interests: selectedInterests,
           pace: selectedPace,
           mustSees,
@@ -264,24 +273,67 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
 
 function InterestPicker({ onSelect }: { onSelect: (s: string[]) => void }) {
   const [selected, setSelected] = useState<string[]>([]);
+  const [options, setOptions] = useState(INTEREST_OPTIONS.map(o => ({ ...o, isCustom: false })));
+  const [newActivity, setNewActivity] = useState("");
+
   const toggle = (label: string) => setSelected(prev => prev.includes(label) ? prev.filter(s => s !== label) : [...prev, label]);
+
+  const removeOption = (label: string) => {
+    setOptions(prev => prev.filter(o => o.label !== label));
+    setSelected(prev => prev.filter(s => s !== label));
+  };
+
+  const addCustomActivity = () => {
+    const trimmed = newActivity.trim();
+    if (!trimmed || trimmed.length > 40) return;
+    if (options.some(o => o.label.toLowerCase() === trimmed.toLowerCase())) return;
+    const newOpt = { emoji: "✨", label: trimmed, isCustom: true };
+    setOptions(prev => [...prev, newOpt]);
+    setSelected(prev => [...prev, trimmed]);
+    setNewActivity("");
+  };
 
   return (
     <div className="w-full max-w-[85%]">
       <div className="flex flex-wrap gap-2 mb-3">
-        {INTEREST_OPTIONS.map(opt => (
-          <button
-            key={opt.label}
-            onClick={() => toggle(opt.label)}
-            className={`px-3 py-1.5 rounded-full text-xs font-body font-medium transition-all ${
-              selected.includes(opt.label)
-                ? "bg-accent text-accent-foreground shadow-sm"
-                : "bg-secondary text-secondary-foreground hover:bg-secondary/70"
-            }`}
-          >
-            {opt.emoji} {opt.label}
-          </button>
+        {options.map(opt => (
+          <div key={opt.label} className="group relative">
+            <button
+              onClick={() => toggle(opt.label)}
+              className={`px-3 py-1.5 rounded-full text-xs font-body font-medium transition-all pr-7 ${
+                selected.includes(opt.label)
+                  ? "bg-accent text-accent-foreground shadow-sm"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/70"
+              }`}
+            >
+              {opt.emoji} {opt.label}
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); removeOption(opt.label); }}
+              className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              title="Remove"
+            >
+              <X className="w-2.5 h-2.5" />
+            </button>
+          </div>
         ))}
+      </div>
+      <div className="flex gap-2 mb-3">
+        <input
+          value={newActivity}
+          onChange={e => setNewActivity(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && addCustomActivity()}
+          placeholder="Add a custom activity..."
+          maxLength={40}
+          className="flex-1 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-body focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+        <button
+          onClick={addCustomActivity}
+          disabled={!newActivity.trim()}
+          className="px-3 py-1.5 rounded-full text-xs font-body font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+        >
+          <Plus className="w-3 h-3" /> Add
+        </button>
       </div>
       {selected.length > 0 && (
         <Button onClick={() => onSelect(selected)} size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90 font-body text-xs rounded-full">

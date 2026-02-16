@@ -1,13 +1,18 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Car, Plane, TrainFront, DollarSign, ArrowRight } from "lucide-react";
+import { Car, Plane, TrainFront, DollarSign, ArrowRight, CalendarIcon } from "lucide-react";
+import { format, differenceInDays } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RoamlyLogo } from "@/components/RoamlyLogo";
 import { PlacesAutocomplete } from "@/components/PlacesAutocomplete";
 import { DestinationCarousel } from "@/components/DestinationCarousel";
 import { UserMenu } from "@/components/UserMenu";
+import { useIsMobile } from "@/hooks/use-mobile";
+import type { DateRange } from "react-day-picker";
 
 const tripLengths = ["Day trip", "Weekend", "Full week", "Custom"];
 const travelModes = [
@@ -19,9 +24,12 @@ const travelModes = [
 
 export default function LandingPage() {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [tripLength, setTripLength] = useState("Weekend");
+  const [dateMode, setDateMode] = useState<"flexible" | "specific">("flexible");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [budgetAmount, setBudgetAmount] = useState("");
   const [mode, setMode] = useState("Car");
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -29,7 +37,6 @@ export default function LandingPage() {
   useEffect(() => {
     const video = videoRef.current;
     if (video) {
-      // Use the local file, with a fallback to a stock video for testing
       video.src = "/videos/hero-bg.mp4";
       video.load();
       video.play().catch(() => {});
@@ -39,8 +46,26 @@ export default function LandingPage() {
   const handlePlanTrip = () => {
     if (!from.trim() || !to.trim()) return;
     const budget = budgetAmount.trim() ? `$${budgetAmount.trim()}` : "No limit";
-    navigate("/plan", { state: { from: from.trim(), to: to.trim(), days: tripLength, budget, mode } });
+
+    if (dateMode === "specific" && dateRange?.from && dateRange?.to) {
+      const numDays = differenceInDays(dateRange.to, dateRange.from) + 1;
+      navigate("/plan", {
+        state: {
+          from: from.trim(),
+          to: to.trim(),
+          days: String(numDays),
+          budget,
+          mode,
+          startDate: format(dateRange.from, "yyyy-MM-dd"),
+          endDate: format(dateRange.to, "yyyy-MM-dd"),
+        },
+      });
+    } else {
+      navigate("/plan", { state: { from: from.trim(), to: to.trim(), days: tripLength, budget, mode } });
+    }
   };
+
+  const canSubmit = from.trim() && to.trim() && (dateMode === "flexible" || (dateRange?.from && dateRange?.to));
 
   return (
     <div className="min-h-screen bg-background">
@@ -104,24 +129,69 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* Trip Length */}
+            {/* When are you going? */}
             <div className="mb-6">
-              <label className="text-xs font-body font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">Trip Length</label>
-              <div className="flex flex-wrap gap-2">
-                {tripLengths.map((t) =>
-                <button
-                  key={t}
-                  onClick={() => setTripLength(t)}
-                  className={`px-4 py-2 rounded-full text-sm font-body font-medium transition-all ${
-                  tripLength === t ?
-                  "bg-primary text-primary-foreground shadow-md" :
-                  "bg-secondary text-secondary-foreground hover:bg-secondary/70"}`
-                  }>
-
-                    {t}
+              <label className="text-xs font-body font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">When are you going?</label>
+              <div className="flex gap-2 mb-3">
+                {(["flexible", "specific"] as const).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => setDateMode(m)}
+                    className={`px-4 py-2 rounded-full text-sm font-body font-medium transition-all ${
+                      dateMode === m
+                        ? "bg-primary text-primary-foreground shadow-md"
+                        : "bg-secondary text-secondary-foreground hover:bg-secondary/70"
+                    }`}
+                  >
+                    {m === "flexible" ? "Flexible" : "Specific Dates"}
                   </button>
-                )}
+                ))}
               </div>
+
+              {dateMode === "flexible" ? (
+                <div className="flex flex-wrap gap-2">
+                  {tripLengths.map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setTripLength(t)}
+                      className={`px-4 py-2 rounded-full text-sm font-body font-medium transition-all ${
+                        tripLength === t
+                          ? "bg-accent text-accent-foreground shadow-sm"
+                          : "bg-secondary text-secondary-foreground hover:bg-secondary/70"
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-card text-sm font-body font-medium text-foreground hover:bg-secondary/50 transition-all w-full sm:w-auto">
+                      <CalendarIcon className="w-4 h-4 text-muted-foreground" />
+                      {dateRange?.from && dateRange?.to ? (
+                        <span>
+                          {format(dateRange.from, "MMM d")} – {format(dateRange.to, "MMM d")}
+                          <span className="text-muted-foreground ml-1">
+                            ({differenceInDays(dateRange.to, dateRange.from)} nights)
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">Pick your dates</span>
+                      )}
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="range"
+                      selected={dateRange}
+                      onSelect={setDateRange}
+                      numberOfMonths={isMobile ? 1 : 2}
+                      disabled={{ before: new Date() }}
+                    />
+                  </PopoverContent>
+                </Popover>
+              )}
             </div>
 
             {/* Budget - Dollar Input */}
@@ -165,7 +235,8 @@ export default function LandingPage() {
             {/* CTA */}
             <Button
               onClick={handlePlanTrip}
-              className="w-full h-14 text-lg font-body font-semibold bg-accent text-accent-foreground hover:bg-accent/90 rounded-xl transition-all hover:scale-[1.02] hover:shadow-lg active:scale-[0.98] animate-pulse-glow">
+              disabled={!canSubmit}
+              className="w-full h-14 text-lg font-body font-semibold bg-accent text-accent-foreground hover:bg-accent/90 rounded-xl transition-all hover:scale-[1.02] hover:shadow-lg active:scale-[0.98] animate-pulse-glow disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100">
 
               Plan My Trip <ArrowRight className="ml-2 w-5 h-5" />
             </Button>

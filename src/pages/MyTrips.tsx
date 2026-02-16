@@ -1,7 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { ArrowLeft, MapPin, Trash2, Calendar, DollarSign } from "lucide-react";
+import { ArrowLeft, MapPin, Trash2, Calendar, DollarSign, CalendarRange } from "lucide-react";
+import { format, parseISO } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { RoamlyLogo } from "@/components/RoamlyLogo";
 import { UserMenu } from "@/components/UserMenu";
@@ -117,7 +118,7 @@ export default function MyTrips() {
                     <h3 className="font-display font-semibold text-lg text-primary mb-1 truncate">{trip.title}</h3>
                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground font-body mb-3">
                       <span className="flex items-center gap-1">
-                        <Calendar className="w-3 h-3" /> {config?.days || "—"}
+                        <Calendar className="w-3 h-3" /> {config?.startDate && config?.endDate ? `${format(parseISO(config.startDate), "MMM d")} – ${format(parseISO(config.endDate), "MMM d")}` : config?.days || "—"}
                       </span>
                       <span className="flex items-center gap-1">
                         <DollarSign className="w-3 h-3" /> {config?.budget || "—"}

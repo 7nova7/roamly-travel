@@ -22,7 +22,7 @@ serve(async (req) => {
   }
 
   try {
-    const { from, to, days, budget, mode, interests, pace, mustSees, adjustmentRequest, currentItinerary } = await req.json();
+    const { from, to, days, budget, mode, interests, pace, mustSees, adjustmentRequest, currentItinerary, startDate, endDate } = await req.json();
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -63,6 +63,10 @@ TRAVEL MODE COST ESTIMATION:
 - The "driveFromPrev" field should reflect the travel mode (e.g. "2h flight", "4h 30m drive", "3h train")
 - The "estimatedCost" per day should include both travel costs and activity costs
 - Factor the travel mode into how stops are structured (flying between distant cities vs driving through towns)`;
+
+    if (startDate && endDate) {
+      systemPrompt += `\n\nSPECIFIC DATES: This trip runs from ${startDate} to ${endDate}. Use these exact dates in your day titles (e.g. "Day 1 — Mar 15: Seattle to Olympia"). Factor in seasonal considerations, day-of-week opening hours, and any relevant events during these dates.`;
+    }
 
     if (adjustmentRequest) {
       systemPrompt += `\n\nIMPORTANT ADJUSTMENT REQUEST: The user wants to modify the existing itinerary: "${adjustmentRequest}". Apply this adjustment while keeping the same general structure and real place data. Make targeted changes rather than regenerating everything from scratch.`;

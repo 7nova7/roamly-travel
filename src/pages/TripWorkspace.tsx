@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Map, MessageSquare, Plus, Save, Loader2 } from "lucide-react";
+import { format, parseISO } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { RoamlyLogo } from "@/components/RoamlyLogo";
 import { ChatPanel } from "@/components/ChatPanel";
@@ -20,6 +21,8 @@ interface SavedTripState {
   days: string;
   budget: string;
   mode: string;
+  startDate?: string;
+  endDate?: string;
   savedTripId?: string;
   savedItinerary?: DayPlan[];
   savedPreferences?: { interests: string[]; pace: string; mustSees: string };
@@ -39,7 +42,7 @@ export default function TripWorkspace() {
   const [authOpen, setAuthOpen] = useState(false);
 
   const state = (location.state || {}) as SavedTripState;
-  const tripConfig: TripConfig = { from: state.from || "Unknown", to: state.to || "Unknown", days: state.days || "Weekend", budget: state.budget || "$$", mode: state.mode || "Car" };
+  const tripConfig: TripConfig = { from: state.from || "Unknown", to: state.to || "Unknown", days: state.days || "Weekend", budget: state.budget || "$$", mode: state.mode || "Car", startDate: state.startDate, endDate: state.endDate };
   const [savedTripId, setSavedTripId] = useState<string | undefined>(state.savedTripId);
   const [itinerary, setItinerary] = useState<DayPlan[] | null>(state.savedItinerary ?? null);
   const [preferences, setPreferences] = useState<{ interests: string[]; pace: string; mustSees: string } | undefined>(state.savedPreferences);
@@ -78,7 +81,7 @@ export default function TripWorkspace() {
           <RoamlyLogo size="sm" className="text-primary" />
         </button>
         <div className="hidden sm:flex items-center gap-2 px-4 py-1.5 rounded-full bg-secondary text-xs font-body font-medium text-foreground">
-          {tripConfig.from} → {tripConfig.to} | {tripConfig.days} | {tripConfig.budget}
+          {tripConfig.from} → {tripConfig.to} | {tripConfig.startDate && tripConfig.endDate ? `${format(parseISO(tripConfig.startDate), "MMM d")} – ${format(parseISO(tripConfig.endDate), "MMM d")}` : tripConfig.days} | {tripConfig.budget}
         </div>
         <div className="flex items-center gap-2">
           {itinerary && (
