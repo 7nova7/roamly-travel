@@ -78,7 +78,7 @@ const toStops = (labels: string[], city: string): SampleStop[] => {
 
 const buildSampleDays = (item: (typeof exampleItineraries)[number]): SampleDay[] => {
   const themeBits = item.theme.split("+").map((part) => part.trim()).filter(Boolean);
-  const day1Stops = toStops(item.highlights, item.city);
+  const day1Stops = toStops([...item.highlights], item.city);
 
   if (item.duration === "Day trip") {
     return [{ day: 1, stops: day1Stops }];
