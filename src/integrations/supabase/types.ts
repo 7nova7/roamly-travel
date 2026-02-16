@@ -16,82 +16,66 @@ export type Database = {
     Tables: {
       profiles: {
         Row: {
-          id: string
-          email: string | null
-          display_name: string | null
           avatar_url: string | null
-          role: string
           created_at: string
+          display_name: string | null
+          email: string | null
+          id: string
+          role: string
           updated_at: string
         }
         Insert: {
-          id: string
-          email?: string | null
-          display_name?: string | null
           avatar_url?: string | null
-          role?: string
           created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id: string
+          role?: string
           updated_at?: string
         }
         Update: {
-          id?: string
-          email?: string | null
-          display_name?: string | null
           avatar_url?: string | null
-          role?: string
           created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          role?: string
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "profiles_id_fkey"
-            columns: ["id"]
-            isOneToOne: true
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
-        ]
+        Relationships: []
       }
       trips: {
         Row: {
+          created_at: string
           id: string
-          user_id: string
-          title: string
-          trip_config: Json
           itinerary: Json
           preferences: Json | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
           title: string
           trip_config: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
           itinerary: Json
           preferences?: Json | null
-          created_at?: string
+          title: string
+          trip_config: Json
           updated_at?: string
+          user_id: string
         }
         Update: {
+          created_at?: string
           id?: string
-          user_id?: string
-          title?: string
-          trip_config?: Json
           itinerary?: Json
           preferences?: Json | null
-          created_at?: string
+          title?: string
+          trip_config?: Json
           updated_at?: string
+          user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "trips_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
-        ]
+        Relationships: []
       }
     }
     Views: {

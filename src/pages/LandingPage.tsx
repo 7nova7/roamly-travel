@@ -42,17 +42,24 @@ export default function LandingPage() {
 
       {/* Hero */}
       <section className="pt-32 pb-20 px-4 sm:px-6 relative overflow-hidden">
-        <div className="absolute inset-0 -z-10">
-          <div className="absolute top-20 right-0 w-[500px] h-[500px] rounded-full bg-accent/5 blur-3xl" />
-          <div className="absolute bottom-0 left-0 w-[400px] h-[400px] rounded-full bg-primary/5 blur-3xl" />
-        </div>
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+          className="absolute inset-0 w-full h-full object-cover -z-20"
+        >
+          <source src="/videos/hero-bg.mp4" type="video/mp4" />
+        </video>
+        <div className="absolute inset-0 bg-black/50 -z-10" />
 
         <div className="max-w-4xl mx-auto text-center">
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="text-4xl sm:text-5xl lg:text-6xl font-display font-bold text-primary leading-tight mb-6">
+            className="text-4xl sm:text-5xl lg:text-6xl font-display font-bold text-white leading-tight mb-6">
 
             A to Everywhere, Smarter       
           </motion.h1>
@@ -60,7 +67,7 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.15 }}
-            className="text-lg sm:text-xl text-muted-foreground font-body max-w-2xl mx-auto mb-12">
+            className="text-lg sm:text-xl text-white/80 font-body max-w-2xl mx-auto mb-12">
 
             Tell us where you're headed. We'll plan the smartest route — optimized around hours, distances, and what you actually love.
           </motion.p>
@@ -70,7 +77,7 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
-            className="bg-card rounded-2xl shadow-xl border border-border/60 p-6 sm:p-8 max-w-3xl mx-auto text-left">
+            className="bg-card/90 backdrop-blur-xl rounded-2xl shadow-xl border border-border/60 p-6 sm:p-8 max-w-3xl mx-auto text-left">
 
             {/* From / To with Places Autocomplete */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
