@@ -58,7 +58,7 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
     if (phase === 0) {
       setPhase(1);
       addBotMessage(
-        `Hey! 👋 I'm planning your ${tripConfig.days.toLowerCase()} trip from ${tripConfig.from} to ${tripConfig.to}. Before I build your itinerary, I want to make sure it's perfect for you.\n\nWhat kinds of experiences are you most into?`,
+        `Hey! 👋 I'm planning your ${tripConfig.days.toLowerCase()} ${tripConfig.from === tripConfig.to ? `trip exploring ${tripConfig.to}` : `trip from ${tripConfig.from} to ${tripConfig.to}`}. Before I build your itinerary, I want to make sure it's perfect for you.\n\nWhat kinds of experiences are you most into?`,
         "text",
         500
       );
