@@ -88,7 +88,7 @@ export default function LandingPage() {
             muted
             loop
             playsInline
-            preload="auto"
+            preload="none"
             className="min-w-full min-h-full object-cover" />
 
         </div>
