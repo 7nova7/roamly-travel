@@ -1,33 +1,97 @@
 
-# Background Video on Landing Page Hero
 
-## What Changes
+# Fix Infinite Recursion in RLS Policies
 
-The uploaded bird's-eye-view travel video will play as a fullscreen looping background behind the hero section (headline + trip form). A dark overlay ensures text and form inputs remain readable. The video auto-plays muted, loops infinitely, and covers the entire hero area responsively on both desktop and mobile.
+## Problem
 
-## Visual Effect
+The "Admins can read all profiles" policy on the `profiles` table contains a subquery that reads from `profiles` itself, causing PostgreSQL to enter infinite recursion when any query hits this table (including saving a trip, which triggers the admin check on `trips`).
 
-- Video fills the entire hero section behind the heading, subtitle, and trip form card
-- A semi-transparent dark gradient overlay sits between the video and the content for contrast
-- The existing blurred circle decorations are removed (the video replaces them)
-- The trip form card gets a slightly stronger background blur so inputs stay crisp
-- Heading and subtitle text switch to white/light colors for readability over the video
+## Solution
+
+1. **Create a `user_roles` table** to store roles separately (security best practice -- avoids privilege escalation)
+2. **Create a `has_role` security definer function** that bypasses RLS to check roles without recursion
+3. **Drop and recreate the recursive policies** on both `profiles` and `trips` tables to use the new function
+4. **Migrate existing admin users** from the `profiles.role` column into the new `user_roles` table
+5. **Update application code** (`AuthContext.tsx`, `UserMenu.tsx`, etc.) to determine admin status via the `user_roles` table or the `has_role` function
 
 ## Technical Details
 
-### File: `public/videos/hero-bg.mp4`
-- Copy the uploaded video to the public directory so it can be referenced via a simple URL path (video files are too large for ES module imports)
+### Database Migration (SQL)
 
-### File: `src/pages/LandingPage.tsx`
-- Replace the existing decorative blur divs (lines 45-48) with a `<video>` element and overlay `<div>`
-- Video element attributes: `autoPlay`, `muted`, `loop`, `playsInline` (critical for iOS), `preload="auto"`
-- Styled with `object-cover` to fill the section without distortion, positioned absolutely with `inset-0` and `z-[-2]`
-- Dark overlay div positioned absolutely with `inset-0`, `z-[-1]`, using `bg-black/50` for readability
-- Update heading/subtitle text colors to white (`text-white`) so they pop against the dark video
-- Add `backdrop-blur-md bg-white/10` or strengthen the existing card background to `bg-card/90 backdrop-blur-xl` for the form
+```sql
+-- 1. Role enum and table
+CREATE TYPE public.app_role AS ENUM ('admin', 'moderator', 'user');
 
-### Responsive Considerations
-- `object-cover` ensures the video crops gracefully on tall mobile screens
-- `playsInline` prevents iOS from hijacking the video into fullscreen
-- Video is muted so autoplay works on all browsers without user interaction (browser policy requirement)
-- No performance impact on scrolling since the video is contained within the hero section only
+CREATE TABLE public.user_roles (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  role app_role NOT NULL,
+  UNIQUE (user_id, role)
+);
+
+ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
+
+-- 2. Security definer function (no recursion)
+CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role app_role)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.user_roles
+    WHERE user_id = _user_id AND role = _role
+  )
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.has_role FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.has_role TO authenticated;
+
+-- 3. Migrate existing admins
+INSERT INTO public.user_roles (user_id, role)
+SELECT id, 'admin'::app_role FROM public.profiles WHERE role = 'admin'
+ON CONFLICT DO NOTHING;
+
+-- 4. RLS on user_roles
+CREATE POLICY "Users can read own roles"
+  ON public.user_roles FOR SELECT
+  TO authenticated
+  USING (auth.uid() = user_id);
+
+-- 5. Fix profiles policies
+DROP POLICY IF EXISTS "Admins can read all profiles" ON public.profiles;
+CREATE POLICY "Admins can read all profiles"
+  ON public.profiles FOR SELECT
+  TO authenticated
+  USING (public.has_role(auth.uid(), 'admin'));
+
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
+CREATE POLICY "Users can update own profile"
+  ON public.profiles FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = id);
+
+-- 6. Fix trips policies
+DROP POLICY IF EXISTS "Admins can read all trips" ON public.trips;
+CREATE POLICY "Admins can read all trips"
+  ON public.trips FOR SELECT
+  TO authenticated
+  USING (public.has_role(auth.uid(), 'admin'));
+```
+
+### Code Changes
+
+**`src/contexts/AuthContext.tsx`**
+- After fetching the profile, also query `user_roles` to check if the user has the `admin` role
+- Replace `isAdmin: profile?.role === "admin"` with a check against the `user_roles` table result
+
+**`src/hooks/useAuth.ts`**
+- No changes needed (just re-exports context)
+
+**`src/components/UserMenu.tsx`**
+- No changes needed (already reads `isAdmin` from context)
+
+**`src/pages/AdminDashboard.tsx`**
+- May need minor updates if it references `profile.role` directly
+
