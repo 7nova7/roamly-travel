@@ -20,13 +20,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const [isAdmin, setIsAdmin] = useState(false);
+
   const fetchProfile = useCallback(async (userId: string) => {
-    const { data } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .single();
-    setProfile(data);
+    const [profileRes, roleRes] = await Promise.all([
+      supabase.from("profiles").select("*").eq("id", userId).single(),
+      supabase.from("user_roles").select("role").eq("user_id", userId).eq("role", "admin").maybeSingle(),
+    ]);
+    setProfile(profileRes.data);
+    setIsAdmin(!!roleRes.data);
   }, []);
 
   useEffect(() => {
@@ -48,9 +50,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (currentUser) {
           fetchProfile(currentUser.id);
         } else {
-          setProfile(null);
-        }
-        setIsLoading(false);
+        setProfile(null);
+        setIsAdmin(false);
+      }
+      setIsLoading(false);
       }
     );
 
@@ -61,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     setUser(null);
     setProfile(null);
+    setIsAdmin(false);
   }, []);
 
   return (
@@ -69,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         profile,
         isLoading,
-        isAdmin: profile?.role === "admin",
+        isAdmin,
         signOut,
       }}
     >
