@@ -15,7 +15,7 @@ const row1: Destination[] = [
   { city: "Barcelona", title: "Sun & Culture in Barcelona", image: "https://images.unsplash.com/photo-1583422409516-2895a77efded?w=600&q=80", days: "Full week", mode: "Plane" },
   { city: "London", title: "London Highlights", image: "https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?w=600&q=80", days: "Full week", mode: "Plane" },
   { city: "Cancún", title: "Beach Bliss in Cancún", image: "https://images.unsplash.com/photo-1510414842594-a61c69b5ae57?w=600&q=80", days: "Full week", mode: "Plane" },
-  { city: "Toronto", title: "Toronto Weekend Getaway", image: "https://images.unsplash.com/photo-1517090504332-edc2772f0f98?w=600&q=80", days: "Weekend", mode: "Plane" },
+  { city: "Toronto", title: "Toronto Weekend Getaway", image: "https://images.unsplash.com/photo-1517935706615-2717063c2225?w=600&q=80", days: "Weekend", mode: "Plane" },
   { city: "Rome", title: "Roman Holiday", image: "https://images.unsplash.com/photo-1552832230-c0197dd311b5?w=600&q=80", days: "Full week", mode: "Plane" },
   { city: "Bali", title: "Island Vibes in Bali", image: "https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=600&q=80", days: "Full week", mode: "Plane" },
 ];
