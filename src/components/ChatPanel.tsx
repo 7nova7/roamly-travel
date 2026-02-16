@@ -22,9 +22,10 @@ interface ChatPanelProps {
   onItineraryReady: (itinerary: DayPlan[]) => void;
   onDayClick?: (dayNumber: number) => void;
   onStopClick?: (name: string, lat: number, lng: number) => void;
+  onStopZoom?: (lat: number, lng: number) => void;
 }
 
-export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItineraryReady, onDayClick, onStopClick }: ChatPanelProps) {
+export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItineraryReady, onDayClick, onStopClick, onStopZoom }: ChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [phase, setPhase] = useState(0);
   const [isTyping, setIsTyping] = useState(false);
@@ -222,7 +223,7 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
               {msg.type === "itinerary" && generatedItinerary && (
                 <div className="w-full space-y-4">
                   {generatedItinerary.map(day => (
-                    <DayCard key={day.day} day={day} onHighlightStop={onHighlightStop} highlightedStop={highlightedStop} onDayClick={onDayClick} onStopClick={onStopClick} />
+                    <DayCard key={day.day} day={day} onHighlightStop={onHighlightStop} highlightedStop={highlightedStop} onDayClick={onDayClick} onStopClick={onStopClick} onStopZoom={onStopZoom} />
                   ))}
                 </div>
               )}

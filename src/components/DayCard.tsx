@@ -8,9 +8,10 @@ interface DayCardProps {
   highlightedStop: string | null;
   onDayClick?: (dayNumber: number) => void;
   onStopClick?: (name: string, lat: number, lng: number) => void;
+  onStopZoom?: (lat: number, lng: number) => void;
 }
 
-export function DayCard({ day, onHighlightStop, highlightedStop, onDayClick, onStopClick }: DayCardProps) {
+export function DayCard({ day, onHighlightStop, highlightedStop, onDayClick, onStopClick, onStopZoom }: DayCardProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 15 }}
@@ -47,6 +48,7 @@ export function DayCard({ day, onHighlightStop, highlightedStop, onDayClick, onS
             <div
               onMouseEnter={() => onHighlightStop(stop.id)}
               onMouseLeave={() => onHighlightStop(null)}
+              onClick={() => onStopZoom?.(stop.lat, stop.lng)}
               className={`flex gap-3 p-2.5 rounded-xl cursor-pointer transition-all ${
                 highlightedStop === stop.id ? "bg-accent/10 shadow-sm" : "hover:bg-secondary/50"
               }`}
