@@ -1,68 +1,28 @@
+# Fix Destination Carousel: Remove "Your Location" and Fix Images
 
+## Changes
 
-# Animated Destination Carousel on Landing Page
+### 1. Update `src/components/DestinationCarousel.tsx`
 
-## What You'll Get
+**Remove "Your Location"**: Change the `from` field for every destination to match the destination city itself (e.g., `from: "New York"` and `to: "New York"`). This way the trip reads as a local itinerary exploring that city and its surroundings, and the nav bar will show something like "New York → New York | Full week" instead of "Your Location → New York".
 
-A horizontally auto-scrolling carousel of destination cards placed directly below the "Plan My Trip" button. Each card shows a beautiful city photo with the trip title overlaid. The cards scroll continuously in a marquee-style animation, and clicking any card navigates to the trip workspace where the AI automatically generates an itinerary for that destination.
+**Fix broken Unsplash images**: Replace image URLs that may be broken or return errors. Specifically:
 
-## Destination Cards
+- Lisbon: replace `photo-1558618666-fcd25c85f82e` with a verified working Lisbon photo (`photo-1585208798174-6cedd86e019a`)
+- Buenos Aires: replace `photo-1589909202802-8f4aadce1849` with a verified working photo (`photo-1612294037637-ec328d0e075e`)
+- Reykjavik: replace `photo-1504829857797-ddff29c27927` with a verified Iceland photo (`photo-1529963183134-61a90db47eaf`)
+- Marrakech: replace `photo-1597212618440-806262de4f6b` with a verified Marrakech photo (`photo-1489749798305-4fea3ae63d43`)
 
-Each card will include:
-- A high-quality Unsplash photo of the city (loaded via URL, no local assets needed)
-- A trip title overlay at the bottom (e.g., "A NYC Classic", "Urban Adventure in Tokyo")
-- Rounded corners matching the reference screenshot style
+### 2. Update `src/components/ChatPanel.tsx`
 
-The list will include 16+ destinations spanning the globe:
-- New York, Tokyo, Paris, Barcelona, London, Cancun, Toronto, Rome, Bali, Sydney, Dubai, Marrakech, Reykjavik, Cape Town, Bangkok, Lisbon, and more
-
-## Animation
-
-- Two rows scrolling in opposite directions (row 1 left-to-right, row 2 right-to-left) for visual interest
-- CSS keyframe marquee animation -- smooth, infinite, and performant (no JS timers)
-- The card list is duplicated so the scroll loops seamlessly without gaps
-- Animation pauses on hover so users can click a card easily
-- Full-width overflow hidden container so cards appear and disappear at the edges
-
-## Click Behavior
-
-When a user clicks a destination card, it navigates to `/plan` with pre-filled state:
-- `from`: a sensible origin (e.g., "Your Location")
-- `to`: the destination city
-- `days`: a preset trip length per destination (e.g., "Weekend", "Full week")
-- `budget`: "No limit"
-- `mode`: "Plane" for international, "Car" for domestic
-
-The trip workspace then auto-generates the itinerary via AI as it normally would.
-
-## Placement
-
-Inserted between the trip form card and the "How Roamly Works" section -- right after the hero section closes.
+Adjust the greeting message so that when `from` equals `to`, it says "exploring {city}" instead of "trip from {city} to {city}". For example: "I'm planning your full week exploring New York."
 
 ## Technical Details
 
-### New File: `src/components/DestinationCarousel.tsx`
-- Contains the destination data array (city name, title, Unsplash image URL, trip config)
-- Renders two scrolling rows using CSS `@keyframes` animation on a flex container
-- Each card is an `<a>`-like clickable element using `useNavigate`
-- Cards are ~280px wide, ~200px tall with rounded-2xl corners and a gradient overlay for text readability
-- The card list is rendered twice (concatenated) to create the seamless loop effect
-
-### Modified File: `src/pages/LandingPage.tsx`
-- Import and render `<DestinationCarousel />` between the hero section and "How it works" section
-
-### CSS Animation (in component via Tailwind arbitrary values or inline style)
-```
-@keyframes scroll-left {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
-}
-@keyframes scroll-right {
-  0% { transform: translateX(-50%); }
-  100% { transform: translateX(0); }
-}
-```
-Duration ~40-60s for a smooth, leisurely scroll.
-
-### No backend changes needed
-All destination data is hardcoded. The existing `/plan` route and AI itinerary generation handle everything once the user lands on the workspace.
+- `DestinationCarousel.tsx`: Change all `handleClick` calls to pass `from: dest.city` instead of `from: "Your Location"`
+- `ChatPanel.tsx` line 61: Add a conditional -- if `tripConfig.from === tripConfig.to`, use the wording `"trip exploring ${tripConfig.to}"` instead of `"trip from ${tripConfig.from} to ${tripConfig.to}"`
+- Replace 4 Unsplash photo IDs with known-working alternatives
+- No backend or dependency changes needed  
+  
+  
+3. Ensure there is a fair mix of "full week" and "weekend trip" 
