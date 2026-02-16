@@ -28,9 +28,10 @@ interface ChatPanelProps {
   onSaveTrip?: () => void;
   onPreferencesUpdate?: (prefs: { interests: string[]; pace: string; mustSees: string }) => void;
   initialItinerary?: DayPlan[];
+  reserveBottomSpace?: boolean;
 }
 
-export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItineraryReady, onDayClick, onStopClick, onStopZoom, onSaveTrip, onPreferencesUpdate, initialItinerary }: ChatPanelProps) {
+export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItineraryReady, onDayClick, onStopClick, onStopZoom, onSaveTrip, onPreferencesUpdate, initialItinerary, reserveBottomSpace = false }: ChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [phase, setPhase] = useState(0);
   const [isTyping, setIsTyping] = useState(false);
@@ -300,7 +301,10 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
         </div>
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4 custom-scrollbar">
+      <div
+        ref={scrollRef}
+        className={`flex-1 overflow-y-auto px-4 py-4 space-y-4 custom-scrollbar ${reserveBottomSpace ? "pb-24" : ""}`}
+      >
         <AnimatePresence>
           {messages.map((msg) => (
             <motion.div

@@ -127,6 +127,7 @@ export default function TripWorkspace() {
                 onSaveTrip={handleSave}
                 onPreferencesUpdate={handlePreferencesUpdate}
                 initialItinerary={shared?.itinerary ?? state.savedItinerary}
+                reserveBottomSpace={isMobile && !!itinerary}
               />
             </div>
             <div className="flex-1 relative">
@@ -152,6 +153,7 @@ export default function TripWorkspace() {
                 onSaveTrip={handleSave}
                 onPreferencesUpdate={handlePreferencesUpdate}
                 initialItinerary={shared?.itinerary ?? state.savedItinerary}
+                reserveBottomSpace={isMobile && !!itinerary}
               />
             </div>
           </>
@@ -162,10 +164,10 @@ export default function TripWorkspace() {
 
       {/* Mobile sticky bottom map/chat toggle — only after itinerary is ready */}
       {isMobile && itinerary && (
-        <div className="fixed bottom-6 left-0 right-0 px-4 z-50 pointer-events-none">
+        <div className="fixed bottom-6 right-4 z-50">
           <Button
             onClick={() => setShowMap(!showMap)}
-            className="w-full pointer-events-auto shadow-lg rounded-full h-12 text-sm font-body font-semibold gap-2"
+            className="shadow-lg rounded-full h-12 px-5 text-sm font-body font-semibold gap-2"
           >
             {showMap ? <MessageSquare className="w-4 h-4" /> : <Map className="w-4 h-4" />}
             {showMap ? "Back to Chat" : "View on Map"}
