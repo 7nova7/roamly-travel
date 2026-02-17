@@ -11,10 +11,12 @@ interface TripMapProps {
   onHighlightStop: (stopId: string | null) => void;
   focusedDay: number | null;
   onResetFocus: () => void;
+  onFocusDay?: (dayNumber: number) => void;
   onStopClick?: (name: string, lat: number, lng: number) => void;
   visible?: boolean;
   zoomTarget?: { lat: number; lng: number } | null;
   onZoomComplete?: () => void;
+  previewPin?: { name: string; lat: number; lng: number } | null;
 }
 
 const DAY_COLORS = ["#1B4332", "#2563EB", "#F4A261", "#D6336C", "#6D28D9", "#0D9488", "#EAB308"];
@@ -38,12 +40,62 @@ function getIconSvg(tags: string[]): string {
   return TAG_ICONS.default;
 }
 
-export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDay, onResetFocus, onStopClick, visible = true, zoomTarget, onZoomComplete }: TripMapProps) {
+function getDayColor(day: DayPlan, fallbackIndex: number): string {
+  return day.color || DAY_COLORS[fallbackIndex % DAY_COLORS.length];
+}
+
+export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDay, onResetFocus, onFocusDay, onStopClick, visible = true, zoomTarget, onZoomComplete, previewPin }: TripMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<{ [key: string]: { marker: mapboxgl.Marker; el: HTMLDivElement } }>({});
+  const previewMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const previewPinRef = useRef<{ name: string; lat: number; lng: number } | null>(null);
   const [activeStyle, setActiveStyle] = useState("outdoors");
   const [mapReady, setMapReady] = useState(false);
+
+  const renderPreviewPin = () => {
+    const map = mapInstance.current;
+    if (!map) return;
+
+    previewMarkerRef.current?.remove();
+    previewMarkerRef.current = null;
+
+    const pin = previewPinRef.current;
+    if (!pin) return;
+
+    const el = document.createElement("div");
+    el.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+        <div style="
+          background:rgba(255,255,255,0.94);
+          border:1px solid rgba(0,0,0,0.08);
+          border-radius:999px;
+          padding:3px 10px;
+          font-size:11px;
+          font-weight:600;
+          color:#1B4332;
+          max-width:220px;
+          white-space:nowrap;
+          overflow:hidden;
+          text-overflow:ellipsis;
+          box-shadow:0 4px 12px rgba(0,0,0,0.15);
+          font-family:'Plus Jakarta Sans',sans-serif;
+        ">${pin.name}</div>
+        <div style="
+          width:18px;
+          height:18px;
+          border-radius:999px;
+          background:#F4A261;
+          border:2px solid #fff;
+          box-shadow:0 3px 10px rgba(0,0,0,0.28);
+        "></div>
+      </div>
+    `;
+
+    previewMarkerRef.current = new mapboxgl.Marker({ element: el, anchor: "bottom" })
+      .setLngLat([pin.lng, pin.lat])
+      .addTo(map);
+  };
 
   // Initialize map
   useEffect(() => {
@@ -84,6 +136,8 @@ export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDa
 
     return () => {
       cancelled = true;
+      previewMarkerRef.current?.remove();
+      previewMarkerRef.current = null;
       mapInstance.current?.remove();
       mapInstance.current = null;
       setMapReady(false);
@@ -125,6 +179,7 @@ export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDa
       }
       // Re-add route and markers without resetting position
       addRouteAndMarkers(true);
+      renderPreviewPin();
     });
   };
 
@@ -132,6 +187,9 @@ export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDa
   const addRouteAndMarkers = (skipFitBounds = false) => {
     const map = mapInstance.current;
     if (!map || !itinerary) return;
+    const daysToRender = focusedDay !== null
+      ? itinerary.filter((day) => day.day === focusedDay)
+      : itinerary;
 
     // Clear old markers
     Object.values(markersRef.current).forEach(({ marker }) => marker.remove());
@@ -144,8 +202,8 @@ export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDa
 
     const coords: [number, number][] = [];
 
-    itinerary.forEach((day, dayIdx) => {
-      const color = DAY_COLORS[dayIdx % DAY_COLORS.length];
+    daysToRender.forEach((day, dayIdx) => {
+      const color = getDayColor(day, dayIdx);
       day.stops.forEach((stop) => {
         coords.push([stop.lng, stop.lat]);
 
@@ -235,8 +293,8 @@ export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDa
 
   // Build markers when itinerary or map is ready
   useEffect(() => {
-    if (mapReady && itinerary) addRouteAndMarkers();
-  }, [itinerary, mapReady]);
+    if (mapReady && itinerary) addRouteAndMarkers(true);
+  }, [itinerary, mapReady, focusedDay]);
 
   // Zoom to focused day (only when explicitly focusing a day)
   useEffect(() => {
@@ -249,9 +307,13 @@ export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDa
         const coords: [number, number][] = day.stops.map((s) => [s.lng, s.lat]);
         fitBounds(coords, 80);
       }
+    } else {
+      const coords: [number, number][] = itinerary.flatMap((d) => d.stops.map((s) => [s.lng, s.lat] as [number, number]));
+      if (coords.length > 0) {
+        fitBounds(coords, 70);
+      }
     }
-    // Don't reset view when focusedDay becomes null
-  }, [focusedDay, mapReady]);
+  }, [focusedDay, itinerary, mapReady]);
 
   // Zoom to specific stop
   useEffect(() => {
@@ -260,6 +322,12 @@ export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDa
     map.flyTo({ center: [zoomTarget.lng, zoomTarget.lat], zoom: 15, duration: 1000 });
     onZoomComplete?.();
   }, [zoomTarget, mapReady]);
+
+  useEffect(() => {
+    previewPinRef.current = previewPin || null;
+    if (!mapReady || !mapInstance.current) return;
+    renderPreviewPin();
+  }, [previewPin, mapReady]);
 
   // Resize on visibility change
   useEffect(() => {
@@ -272,7 +340,7 @@ export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDa
   useEffect(() => {
     if (!itinerary) return;
     itinerary.forEach((day, dayIdx) => {
-      const color = DAY_COLORS[dayIdx % DAY_COLORS.length];
+      const color = getDayColor(day, dayIdx);
       day.stops.forEach((stop) => {
         const ref = markersRef.current[stop.id];
         if (!ref) return;
@@ -296,24 +364,37 @@ export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDa
       <div ref={mapRef} className="h-full w-full" />
       <MapLayerSwitcher activeStyle={activeStyle} onStyleChange={handleStyleChange} />
       {itinerary && (
-        <div className="absolute bottom-4 left-4 bg-card/90 backdrop-blur-sm rounded-xl border border-border/60 px-3 py-2 shadow-md z-10">
-          <p className="text-[10px] font-body font-semibold text-muted-foreground uppercase tracking-wider mb-1">Days</p>
-          <div className="space-y-1">
-            {itinerary.map((day, i) => (
-              <div key={day.day} className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full" style={{ background: DAY_COLORS[i % DAY_COLORS.length] }} />
-                <span className="text-xs font-body text-foreground">Day {day.day}</span>
-              </div>
-            ))}
-          </div>
-          {focusedDay !== null && (
+        <div className="absolute bottom-4 left-4 max-w-[280px] bg-card/90 backdrop-blur-sm rounded-xl border border-border/60 px-3 py-3 shadow-md z-10">
+          <p className="text-[10px] font-body font-semibold text-muted-foreground uppercase tracking-wider mb-2">Map Pins</p>
+          <div className="flex flex-wrap gap-1.5">
             <button
               onClick={onResetFocus}
-              className="mt-2 text-[10px] font-body font-medium text-accent hover:underline"
+              className={`px-2.5 py-1 rounded-full border text-[11px] font-body font-semibold transition-colors ${
+                focusedDay === null
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-card text-foreground border-border hover:bg-secondary"
+              }`}
             >
-              ← Show all days
+              All pins
             </button>
-          )}
+            {itinerary.map((day, i) => (
+              <button
+                key={day.day}
+                onClick={() => onFocusDay?.(day.day)}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-body font-semibold transition-colors ${
+                  focusedDay === day.day
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-card text-foreground border-border hover:bg-secondary"
+                }`}
+              >
+                <span className="w-2 h-2 rounded-full" style={{ background: getDayColor(day, i) }} />
+                Day {day.day}
+              </button>
+            ))}
+          </div>
+          <p className="text-[10px] font-body text-muted-foreground mt-2">
+            {focusedDay !== null ? `Showing pins for Day ${focusedDay}` : "Showing pins for all days"}
+          </p>
         </div>
       )}
       {!itinerary && (

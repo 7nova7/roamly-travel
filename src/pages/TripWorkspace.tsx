@@ -40,6 +40,7 @@ export default function TripWorkspace() {
   const [focusedDay, setFocusedDay] = useState<number | null>(null);
   const [selectedStop, setSelectedStop] = useState<{ name: string; lat: number; lng: number } | null>(null);
   const [zoomTarget, setZoomTarget] = useState<{ lat: number; lng: number } | null>(null);
+  const [previewPin, setPreviewPin] = useState<{ name: string; lat: number; lng: number } | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
 
   const state = (location.state || {}) as SavedTripState;
@@ -69,6 +70,10 @@ export default function TripWorkspace() {
 
   const handleItineraryReady = (newItinerary: DayPlan[]) => {
     setItinerary(newItinerary);
+  };
+
+  const handleDayFocus = (dayNumber: number) => {
+    setFocusedDay((prev) => (prev === dayNumber ? null : dayNumber));
   };
 
   const handleSave = async () => {
@@ -121,9 +126,12 @@ export default function TripWorkspace() {
                 onHighlightStop={setHighlightedStop}
                 highlightedStop={highlightedStop}
                 onItineraryReady={handleItineraryReady}
-                onDayClick={setFocusedDay}
+                onDayClick={handleDayFocus}
+                focusedDay={focusedDay}
+                onResetDayFocus={() => setFocusedDay(null)}
                 onStopClick={handleStopClick}
                 onStopZoom={handleStopZoom}
+                onPreviewPin={(name, lat, lng) => setPreviewPin({ name, lat, lng })}
                 onSaveTrip={handleSave}
                 onPreferencesUpdate={handlePreferencesUpdate}
                 initialItinerary={shared?.itinerary ?? state.savedItinerary}
@@ -131,14 +139,14 @@ export default function TripWorkspace() {
               />
             </div>
             <div className="flex-1 relative">
-              <TripMap itinerary={itinerary} highlightedStop={highlightedStop} onHighlightStop={setHighlightedStop} focusedDay={focusedDay} onResetFocus={() => setFocusedDay(null)} onStopClick={handleStopClick} zoomTarget={zoomTarget} onZoomComplete={() => setZoomTarget(null)} />
+              <TripMap itinerary={itinerary} highlightedStop={highlightedStop} onHighlightStop={setHighlightedStop} focusedDay={focusedDay} onResetFocus={() => setFocusedDay(null)} onFocusDay={handleDayFocus} onStopClick={handleStopClick} zoomTarget={zoomTarget} onZoomComplete={() => setZoomTarget(null)} previewPin={previewPin} />
               <DestinationPanel stop={selectedStop} onClose={() => setSelectedStop(null)} />
             </div>
           </>
         ) : (
           <>
             <div className={`flex-1 relative ${showMap ? '' : 'hidden'}`}>
-              <TripMap itinerary={itinerary} highlightedStop={highlightedStop} onHighlightStop={setHighlightedStop} focusedDay={focusedDay} onResetFocus={() => setFocusedDay(null)} onStopClick={handleStopClick} visible={showMap} zoomTarget={zoomTarget} onZoomComplete={() => setZoomTarget(null)} />
+              <TripMap itinerary={itinerary} highlightedStop={highlightedStop} onHighlightStop={setHighlightedStop} focusedDay={focusedDay} onResetFocus={() => setFocusedDay(null)} onFocusDay={handleDayFocus} onStopClick={handleStopClick} visible={showMap} zoomTarget={zoomTarget} onZoomComplete={() => setZoomTarget(null)} previewPin={previewPin} />
               <DestinationPanel stop={selectedStop} onClose={() => setSelectedStop(null)} />
             </div>
             <div className={`flex-1 overflow-hidden ${showMap ? 'hidden' : ''}`}>
@@ -147,9 +155,15 @@ export default function TripWorkspace() {
                 onHighlightStop={setHighlightedStop}
                 highlightedStop={highlightedStop}
                 onItineraryReady={handleItineraryReady}
-                onDayClick={(day) => { setFocusedDay(day); setShowMap(true); }}
+                onDayClick={(day) => { handleDayFocus(day); setShowMap(true); }}
+                focusedDay={focusedDay}
+                onResetDayFocus={() => setFocusedDay(null)}
                 onStopClick={(name, lat, lng) => { handleStopClick(name, lat, lng); setShowMap(true); }}
                 onStopZoom={(lat, lng) => { handleStopZoom(lat, lng); setShowMap(true); }}
+                onPreviewPin={(name, lat, lng) => {
+                  setPreviewPin({ name, lat, lng });
+                  setShowMap(true);
+                }}
                 onSaveTrip={handleSave}
                 onPreferencesUpdate={handlePreferencesUpdate}
                 initialItinerary={shared?.itinerary ?? state.savedItinerary}

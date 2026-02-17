@@ -37,21 +37,160 @@ const STAY_BUDGET_VIBES = [
   { label: "Suite life energy", hint: "Premium hotels with memorable views and perks." },
 ];
 
+const CHAT_CLOSE_PHRASES = [
+  "done",
+  "all set",
+  "thats all",
+  "that is all",
+  "we are done",
+  "were done",
+  "looks good",
+  "looks great",
+  "this is perfect",
+  "good for now",
+  "nothing else",
+  "no more changes",
+  "no more edits",
+  "stop here",
+  "end chat",
+  "im good",
+  "i am good",
+];
+
+const CHAT_ACK_PHRASES = [
+  "thanks",
+  "thank you",
+  "cool",
+  "awesome",
+  "great",
+  "nice",
+  "sounds good",
+  "ok",
+  "okay",
+  "got it",
+  "perfect",
+];
+
+const CHAT_ACTION_KEYWORDS = [
+  "add",
+  "remove",
+  "swap",
+  "change",
+  "update",
+  "move",
+  "replace",
+  "find",
+  "show",
+  "adjust",
+  "edit",
+  "tweak",
+  "reorder",
+  "drag",
+  "drop",
+  "include",
+  "exclude",
+  "zoom",
+  "pin",
+  "book",
+];
+
+const DEFAULT_DAY_START_MINUTES = 9 * 60 + 30; // 9:30 AM
+const DEFAULT_STOP_GAP_MINUTES = 150; // 2.5h
+
+function parseClockTimeToMinutes(value: string): number | null {
+  const match = value.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) return null;
+
+  const [, hoursStr, minutesStr, periodRaw] = match;
+  const rawHours = Number.parseInt(hoursStr, 10);
+  const minutes = Number.parseInt(minutesStr, 10);
+  if (Number.isNaN(rawHours) || Number.isNaN(minutes) || rawHours < 1 || rawHours > 12 || minutes < 0 || minutes > 59) {
+    return null;
+  }
+
+  const period = periodRaw.toUpperCase();
+  const normalizedHours = rawHours % 12 + (period === "PM" ? 12 : 0);
+  return normalizedHours * 60 + minutes;
+}
+
+function formatMinutesAsClock(totalMinutes: number): string {
+  const dayMinutes = 24 * 60;
+  const normalized = ((totalMinutes % dayMinutes) + dayMinutes) % dayMinutes;
+  const hours24 = Math.floor(normalized / 60);
+  const minutes = normalized % 60;
+  const period = hours24 >= 12 ? "PM" : "AM";
+  const hours12 = hours24 % 12 || 12;
+  return `${hours12}:${minutes.toString().padStart(2, "0")} ${period}`;
+}
+
+function resequenceStopTimes(stops: DayPlan["stops"]): DayPlan["stops"] {
+  if (stops.length === 0) return stops;
+
+  const parsedTimes = stops
+    .map((stop) => parseClockTimeToMinutes(stop.time))
+    .filter((time): time is number => time !== null)
+    .sort((a, b) => a - b);
+
+  const start = parsedTimes.length > 0 ? parsedTimes[0] : DEFAULT_DAY_START_MINUTES;
+
+  let gap = DEFAULT_STOP_GAP_MINUTES;
+  if (parsedTimes.length >= 2) {
+    const diffs: number[] = [];
+    for (let i = 1; i < parsedTimes.length; i += 1) {
+      const diff = parsedTimes[i] - parsedTimes[i - 1];
+      if (diff >= 45 && diff <= 360) diffs.push(diff);
+    }
+    if (diffs.length > 0) {
+      const avg = Math.round(diffs.reduce((sum, diff) => sum + diff, 0) / diffs.length);
+      gap = Math.max(90, Math.min(240, avg));
+    }
+  }
+
+  return stops.map((stop, index) => ({
+    ...stop,
+    time: formatMinutesAsClock(start + index * gap),
+  }));
+}
+
+function normalizeIntentText(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function hasActionIntent(value: string): boolean {
+  return CHAT_ACTION_KEYWORDS.some((keyword) => value.includes(keyword));
+}
+
+function containsPhrase(value: string, phrases: string[]): boolean {
+  return phrases.some((phrase) =>
+    value === phrase ||
+    value.startsWith(`${phrase} `) ||
+    value.endsWith(` ${phrase}`) ||
+    value.includes(` ${phrase} `)
+  );
+}
+
 interface ChatPanelProps {
   tripConfig: TripConfig;
   onHighlightStop: (stopId: string | null) => void;
   highlightedStop: string | null;
   onItineraryReady: (itinerary: DayPlan[]) => void;
   onDayClick?: (dayNumber: number) => void;
+  focusedDay?: number | null;
+  onResetDayFocus?: () => void;
   onStopClick?: (name: string, lat: number, lng: number) => void;
   onStopZoom?: (lat: number, lng: number) => void;
+  onPreviewPin?: (name: string, lat: number, lng: number) => void;
   onSaveTrip?: () => void;
   onPreferencesUpdate?: (prefs: { interests: string[]; pace: string; mustSees: string }) => void;
   initialItinerary?: DayPlan[];
   reserveBottomSpace?: boolean;
 }
 
-export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItineraryReady, onDayClick, onStopClick, onStopZoom, onSaveTrip, onPreferencesUpdate, initialItinerary, reserveBottomSpace = false }: ChatPanelProps) {
+export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItineraryReady, onDayClick, focusedDay = null, onResetDayFocus, onStopClick, onStopZoom, onPreviewPin, onSaveTrip, onPreferencesUpdate, initialItinerary, reserveBottomSpace = false }: ChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [phase, setPhase] = useState(0);
   const [chatInitiated, setChatInitiated] = useState(Boolean(initialItinerary));
@@ -61,7 +200,9 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [selectedPace, setSelectedPace] = useState("");
   const [mustSeesValue, setMustSeesValue] = useState("");
+  const [composerValue, setComposerValue] = useState("");
   const [stayOptions, setStayOptions] = useState<StayOption[]>([]);
+  const [selectedStays, setSelectedStays] = useState<StayOption[]>([]);
   const [stayBudgetVibe, setStayBudgetVibe] = useState("");
   const [planTab, setPlanTab] = useState<"itinerary" | "stays">("itinerary");
   const [isFindingStays, setIsFindingStays] = useState(false);
@@ -96,6 +237,34 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
   const getErrorMessage = useCallback((err: unknown, fallback: string) => (
     err instanceof Error ? err.message : fallback
   ), []);
+
+  const normalizeStayOption = useCallback((raw: unknown): StayOption | null => {
+    if (!raw || typeof raw !== "object") return null;
+    const value = raw as Record<string, unknown>;
+    const lat = Number(value.lat);
+    const lng = Number(value.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
+    const idBase = typeof value.id === "string" && value.id.trim()
+      ? value.id.trim()
+      : typeof value.name === "string" && value.name.trim()
+        ? value.name.trim().toLowerCase().replace(/\s+/g, "-")
+        : `stay-${Date.now()}`;
+
+    return {
+      id: idBase,
+      name: typeof value.name === "string" ? value.name : "Unnamed stay",
+      type: typeof value.type === "string" ? value.type : "Hotel",
+      neighborhood: typeof value.neighborhood === "string" ? value.neighborhood : "Central",
+      address: typeof value.address === "string" ? value.address : "",
+      nightlyPrice: typeof value.nightlyPrice === "string" ? value.nightlyPrice : "Price varies",
+      style: typeof value.style === "string" ? value.style : "Recommended",
+      why: typeof value.why === "string" ? value.why : "Good match for your trip.",
+      bestFor: typeof value.bestFor === "string" ? value.bestFor : "General travelers",
+      lat,
+      lng,
+    };
+  }, []);
 
   const startConversation = useCallback(() => {
     if (chatInitiated) return;
@@ -201,6 +370,7 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
     addUserMessage(mustSees);
     setInputValue("");
     setStayOptions([]);
+    setSelectedStays([]);
     setStayBudgetVibe("");
     setPlanTab("itinerary");
     setHasPromptedStays(false);
@@ -252,7 +422,11 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
-      const parsed = Array.isArray(data?.stays) ? data.stays as StayOption[] : [];
+      const parsed = Array.isArray(data?.stays)
+        ? data.stays
+          .map((item: unknown) => normalizeStayOption(item))
+          .filter((item): item is StayOption => Boolean(item))
+        : [];
       if (!parsed.length) {
         throw new Error("No stays were returned. Try a different vibe.");
       }
@@ -278,6 +452,7 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
     generatedItinerary,
     getErrorMessage,
     mustSeesValue,
+    normalizeStayOption,
     selectedInterests,
     selectedPace,
     toast,
@@ -309,6 +484,26 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
       }, 750);
     }, 250);
   }, [addBotMessage, addUserMessage, fetchStayRecommendations]);
+
+  const handleAddStayToColumn = useCallback((stay: StayOption) => {
+    setSelectedStays((prev) => {
+      if (prev.some((item) => item.id === stay.id)) return prev;
+      return [...prev, stay];
+    });
+
+    addUserMessage(`Add ${stay.name} to my stays`);
+    addBotMessage(`${stay.name} is now saved in your Stays column. Want to add another or adjust the itinerary?`, "text", 260);
+    onPreviewPin?.(stay.name, stay.lat, stay.lng);
+    onStopZoom?.(stay.lat, stay.lng);
+    toast({
+      title: "Stay saved",
+      description: `${stay.name} was added to your Stays column.`,
+    });
+  }, [addBotMessage, addUserMessage, onPreviewPin, onStopZoom, toast]);
+
+  const handleRemoveStayFromColumn = useCallback((stayId: string) => {
+    setSelectedStays((prev) => prev.filter((item) => item.id !== stayId));
+  }, []);
 
   const generateItinerary = async (mustSees: string, adjustmentRequest?: string, currentItinerary?: DayPlan[]) => {
     try {
@@ -380,6 +575,50 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
     }, 300);
   };
 
+  const handleComposerSubmit = () => {
+    const request = composerValue.trim();
+    if (!request || !generatedItinerary) return;
+
+    setComposerValue("");
+    addUserMessage(request);
+
+    const lower = request.toLowerCase();
+    const normalized = normalizeIntentText(request);
+    const hasAction = hasActionIntent(normalized);
+    const hasQuestion = request.includes("?");
+    const asksForStays = lower.includes("stay") || lower.includes("hotel") || lower.includes("accommodation");
+    const wantsToClose = !hasQuestion && !hasAction && !asksForStays && containsPhrase(normalized, CHAT_CLOSE_PHRASES);
+    const passiveAck = !hasQuestion && !hasAction && !asksForStays && containsPhrase(normalized, CHAT_ACK_PHRASES);
+
+    if (wantsToClose) {
+      addBotMessage("Perfect — we’re all set. I’ll pause here and keep this itinerary as-is. If you want edits later, just ask.", "text", 180);
+      return;
+    }
+
+    if (passiveAck) {
+      addBotMessage("Got it. If you want changes, tell me exactly what to tweak and I’ll handle it.", "text", 180);
+      return;
+    }
+
+    if (asksForStays) {
+      if (stayOptions.length > 0) {
+        setPlanTab("stays");
+        addBotMessage("Already on it — I switched you to the Stays tab so you can pick one to add.", "text", 250);
+      } else {
+        openStayBudgetPrompt();
+      }
+      return;
+    }
+
+    setTimeout(() => {
+      addBotMessage("On it! Adjusting your itinerary... 🔄", "text", 300);
+      setTimeout(() => {
+        setMessages(prev => [...prev, { id: `composer-loading-${Date.now()}`, sender: "bot", content: "", type: "loading" }]);
+        generateItinerary(mustSeesValue || "None", request, generatedItinerary);
+      }, 900);
+    }, 220);
+  };
+
   const handleDeleteStop = useCallback((dayNumber: number, stopId: string) => {
     updateItinerary(prev => prev.map(day => (
       day.day === dayNumber
@@ -389,6 +628,52 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
     toast({
       title: "Activity removed",
       description: `Removed from Day ${dayNumber}.`,
+    });
+  }, [toast, updateItinerary]);
+
+  const handleMoveStop = useCallback((move: { sourceDay: number; stopId: string; targetDay: number; targetStopId?: string }) => {
+    const { sourceDay, stopId, targetDay, targetStopId } = move;
+    if (sourceDay === targetDay && targetStopId === stopId) return;
+
+    let movedStopName = "Activity";
+    let changed = false;
+
+    updateItinerary((prev) => {
+      const next = prev.map((day) => ({ ...day, stops: [...day.stops] }));
+      const source = next.find((day) => day.day === sourceDay);
+      const target = next.find((day) => day.day === targetDay);
+      if (!source || !target) return prev;
+
+      const sourceIndex = source.stops.findIndex((stop) => stop.id === stopId);
+      if (sourceIndex === -1) return prev;
+
+      const [movedStop] = source.stops.splice(sourceIndex, 1);
+      if (!movedStop) return prev;
+      movedStopName = movedStop.name;
+
+      let insertIndex = target.stops.length;
+      if (targetStopId) {
+        const found = target.stops.findIndex((stop) => stop.id === targetStopId);
+        insertIndex = found >= 0 ? found : target.stops.length;
+      }
+      if (sourceDay === targetDay && targetStopId && sourceIndex < insertIndex) {
+        insertIndex -= 1;
+      }
+
+      const safeIndex = Math.max(0, Math.min(insertIndex, target.stops.length));
+      target.stops.splice(safeIndex, 0, movedStop);
+      source.stops = resequenceStopTimes(source.stops);
+      if (sourceDay !== targetDay) {
+        target.stops = resequenceStopTimes(target.stops);
+      }
+      changed = true;
+      return next;
+    });
+
+    if (!changed) return;
+    toast({
+      title: "Activity moved",
+      description: `${movedStopName} moved. Timing was updated to match the new order.`,
     });
   }, [toast, updateItinerary]);
 
@@ -547,6 +832,19 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
 
                       {planTab === "itinerary" ? (
                         <div className="space-y-4">
+                          {focusedDay !== null && (
+                            <div className="rounded-xl border border-border/60 bg-card/70 backdrop-blur-sm px-3 py-2 flex items-center justify-between gap-2">
+                              <p className="text-xs font-body text-foreground">
+                                Map filter: <span className="font-semibold">Day {focusedDay}</span>
+                              </p>
+                              <button
+                                onClick={onResetDayFocus}
+                                className="text-xs font-body font-semibold text-accent hover:underline"
+                              >
+                                Show all pins
+                              </button>
+                            </div>
+                          )}
                           {generatedItinerary.map(day => (
                             <div key={day.day} className="space-y-2">
                               <DayCard
@@ -554,10 +852,12 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
                                 onHighlightStop={onHighlightStop}
                                 highlightedStop={highlightedStop}
                                 onDayClick={onDayClick}
+                                isMapFocused={focusedDay === day.day}
                                 onStopClick={onStopClick}
                                 onStopZoom={onStopZoom}
                                 onDeleteStop={handleDeleteStop}
                                 onAddStop={openAddStop}
+                                onMoveStop={handleMoveStop}
                               />
                               {addDay === day.day && (
                                 <AddActivityForm
@@ -575,12 +875,15 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
                       ) : (
                         <StayRecommendationsPanel
                           options={stayOptions}
+                          selectedOptions={selectedStays}
                           budgetVibe={stayBudgetVibe}
                           isLoading={isFindingStays}
                           onRetry={() => openStayBudgetPrompt()}
-                          onSelect={(stay) => {
+                          onAddToItinerary={handleAddStayToColumn}
+                          onRemoveFromItinerary={handleRemoveStayFromColumn}
+                          onViewOnMap={(stay) => {
+                            onPreviewPin?.(stay.name, stay.lat, stay.lng);
                             onStopZoom?.(stay.lat, stay.lng);
-                            onStopClick?.(stay.name, stay.lat, stay.lng);
                           }}
                         />
                       )}
@@ -602,6 +905,27 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
           </>
         )}
       </div>
+      {chatInitiated && generatedItinerary && (
+        <div className="shrink-0 border-t border-border/70 bg-card/75 backdrop-blur-md px-3 py-3">
+          <div className="flex gap-2">
+            <input
+              value={composerValue}
+              onChange={(e) => setComposerValue(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleComposerSubmit()}
+              placeholder="Ask Roamly to tweak your plan, add activities, or find more stays..."
+              className="flex-1 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-body focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            <Button
+              onClick={handleComposerSubmit}
+              size="icon"
+              disabled={!composerValue.trim()}
+              className="rounded-xl bg-accent text-accent-foreground hover:bg-accent/90 shrink-0"
+            >
+              <Send className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -836,17 +1160,25 @@ function StayBudgetPicker({ onSelect }: { onSelect: (vibe: string) => void }) {
 
 function StayRecommendationsPanel({
   options,
+  selectedOptions,
   budgetVibe,
   isLoading,
   onRetry,
-  onSelect,
+  onAddToItinerary,
+  onRemoveFromItinerary,
+  onViewOnMap,
 }: {
   options: StayOption[];
+  selectedOptions: StayOption[];
   budgetVibe: string;
   isLoading: boolean;
   onRetry: () => void;
-  onSelect: (stay: StayOption) => void;
+  onAddToItinerary: (stay: StayOption) => void;
+  onRemoveFromItinerary: (stayId: string) => void;
+  onViewOnMap: (stay: StayOption) => void;
 }) {
+  const selectedIds = new Set(selectedOptions.map((stay) => stay.id));
+
   if (isLoading) {
     return (
       <div className="rounded-2xl border border-border/60 bg-card/70 backdrop-blur-sm p-4">
@@ -876,11 +1208,38 @@ function StayRecommendationsPanel({
         </div>
         {budgetVibe && <p className="text-[11px] font-body text-muted-foreground">{budgetVibe}</p>}
       </div>
+      {selectedOptions.length > 0 && (
+        <div className="rounded-2xl border border-primary/20 bg-primary/5 p-3 space-y-2">
+          <p className="text-xs font-body font-semibold text-foreground">Saved in your Stays column</p>
+          <div className="space-y-2">
+            {selectedOptions.map((stay) => (
+              <div key={`saved-${stay.id}`} className="rounded-xl border border-border/60 bg-card/80 px-3 py-2">
+                <div className="flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onViewOnMap(stay)}
+                    className="text-xs font-body font-semibold text-foreground hover:text-accent transition-colors"
+                  >
+                    {stay.name}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onRemoveFromItinerary(stay.id)}
+                    className="text-[11px] font-body text-muted-foreground hover:text-destructive transition-colors"
+                  >
+                    Remove
+                  </button>
+                </div>
+                <p className="mt-1 text-[11px] font-body text-muted-foreground">{stay.nightlyPrice} · {stay.neighborhood}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="space-y-2">
         {options.map((stay) => (
-          <button
+          <div
             key={stay.id}
-            onClick={() => onSelect(stay)}
             className="w-full text-left rounded-2xl border border-border/60 bg-card/75 backdrop-blur-sm p-3 hover:border-accent/40 hover:shadow-sm transition-all"
           >
             <div className="flex items-start justify-between gap-3">
@@ -905,7 +1264,31 @@ function StayRecommendationsPanel({
             <p className="mt-2 text-[11px] font-body text-foreground/80">
               Best for: <span className="font-semibold">{stay.bestFor}</span>
             </p>
-          </button>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddToItinerary(stay);
+                }}
+                disabled={selectedIds.has(stay.id)}
+                className="px-3 py-1.5 rounded-lg text-[11px] font-body font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-55 disabled:hover:bg-primary"
+              >
+                {selectedIds.has(stay.id) ? "Added to stays" : "Add to stays"}
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onViewOnMap(stay);
+                }}
+                className="px-3 py-1.5 rounded-lg text-[11px] font-body font-semibold bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
+              >
+                View on map
+              </button>
+            </div>
+          </div>
         ))}
       </div>
     </div>
