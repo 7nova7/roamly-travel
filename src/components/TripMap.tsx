@@ -20,6 +20,8 @@ interface TripMapProps {
 }
 
 const DAY_COLORS = ["#1B4332", "#2563EB", "#F4A261", "#D6336C", "#6D28D9", "#0D9488", "#EAB308"];
+const TERRAIN_SOURCE_ID = "mapbox-dem";
+const THREE_D_BUILDINGS_LAYER_ID = "3d-buildings";
 
 // Icon SVG paths for marker categories
 const TAG_ICONS: Record<string, string> = {
@@ -42,6 +44,76 @@ function getIconSvg(tags: string[]): string {
 
 function getDayColor(day: DayPlan, fallbackIndex: number): string {
   return day.color || DAY_COLORS[fallbackIndex % DAY_COLORS.length];
+}
+
+function ensureTerrainSource(map: mapboxgl.Map) {
+  if (map.getSource(TERRAIN_SOURCE_ID)) return;
+  map.addSource(TERRAIN_SOURCE_ID, {
+    type: "raster-dem",
+    url: "mapbox://mapbox.mapbox-terrain-dem-v1",
+    tileSize: 512,
+    maxzoom: 14,
+  });
+}
+
+function add3DBuildingsLayer(map: mapboxgl.Map) {
+  if (map.getLayer(THREE_D_BUILDINGS_LAYER_ID)) return;
+  if (!map.getSource("composite")) return;
+
+  const labelLayerId = map
+    .getStyle()
+    .layers?.find((layer) => {
+      if (layer.type !== "symbol") return false;
+      const layout = layer.layout as { [key: string]: unknown } | undefined;
+      return Boolean(layout?.["text-field"]);
+    })?.id;
+
+  const buildingsLayer: mapboxgl.FillExtrusionLayer = {
+    id: THREE_D_BUILDINGS_LAYER_ID,
+    type: "fill-extrusion",
+    source: "composite",
+    "source-layer": "building",
+    filter: ["==", ["get", "extrude"], "true"],
+    minzoom: 13,
+    paint: {
+      "fill-extrusion-color": [
+        "interpolate",
+        ["linear"],
+        ["coalesce", ["get", "height"], 0],
+        0,
+        "#d7e3e8",
+        120,
+        "#9fb3be",
+        280,
+        "#6f8794",
+      ],
+      "fill-extrusion-height": ["coalesce", ["get", "height"], 0],
+      "fill-extrusion-base": ["coalesce", ["get", "min_height"], 0],
+      "fill-extrusion-opacity": 0.72,
+    },
+  };
+
+  map.addLayer(buildingsLayer, labelLayerId);
+}
+
+function applyTerrainMode(map: mapboxgl.Map, styleId: string, previousPitch: number, previousBearing: number) {
+  if (styleId === "terrain") {
+    ensureTerrainSource(map);
+    map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: 1.55 });
+    map.setFog({});
+    add3DBuildingsLayer(map);
+
+    const targetPitch = previousPitch >= 52 ? previousPitch : 62;
+    const targetBearing = Math.abs(previousBearing) < 1 ? -20 : previousBearing;
+    map.easeTo({ pitch: targetPitch, bearing: targetBearing, duration: 700, essential: true });
+    return;
+  }
+
+  if (map.getLayer(THREE_D_BUILDINGS_LAYER_ID)) {
+    map.removeLayer(THREE_D_BUILDINGS_LAYER_ID);
+  }
+  map.setTerrain(null);
+  map.setFog(null);
 }
 
 export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDay, onResetFocus, onFocusDay, onStopClick, visible = true, zoomTarget, onZoomComplete, previewPin }: TripMapProps) {
@@ -121,15 +193,7 @@ export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDa
         if (!cancelled) {
           mapInstance.current = map;
           setMapReady(true);
-          // Enable terrain if available
-          if (map.getStyle().sources?.["mapbox-dem"] === undefined) {
-            map.addSource("mapbox-dem", {
-              type: "raster-dem",
-              url: "mapbox://mapbox.mapbox-terrain-dem-v1",
-              tileSize: 512,
-              maxzoom: 14,
-            });
-          }
+          applyTerrainMode(map, "outdoors", map.getPitch(), map.getBearing());
         }
       });
     });
@@ -162,21 +226,7 @@ export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDa
       map.setZoom(zoom);
       map.setPitch(pitch);
       map.setBearing(bearing);
-      // Re-add terrain source
-      if (!map.getSource("mapbox-dem")) {
-        map.addSource("mapbox-dem", {
-          type: "raster-dem",
-          url: "mapbox://mapbox.mapbox-terrain-dem-v1",
-          tileSize: 512,
-          maxzoom: 14,
-        });
-      }
-      // Enable 3D terrain for terrain/outdoors styles
-      if (styleId === "terrain" || styleId === "outdoors") {
-        map.setTerrain({ source: "mapbox-dem", exaggeration: 1.5 });
-      } else {
-        map.setTerrain(null);
-      }
+      applyTerrainMode(map, styleId, pitch, bearing);
       // Re-add route and markers without resetting position
       addRouteAndMarkers(true);
       renderPreviewPin();

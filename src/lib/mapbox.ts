@@ -19,5 +19,5 @@ export const MAPBOX_STYLES = [
   { id: "streets", label: "Streets", url: "mapbox://styles/mapbox/streets-v12", emoji: "🗺️" },
   { id: "satellite", label: "Satellite", url: "mapbox://styles/mapbox/satellite-v9", emoji: "🛰️" },
   { id: "satellite-streets", label: "Satellite Streets", url: "mapbox://styles/mapbox/satellite-streets-v12", emoji: "🌍" },
-  { id: "terrain", label: "Terrain", url: "mapbox://styles/mapbox/outdoors-v12", emoji: "⛰️" },
+  { id: "terrain", label: "3D Terrain", url: "mapbox://styles/mapbox/outdoors-v12", emoji: "⛰️" },
 ] as const;
