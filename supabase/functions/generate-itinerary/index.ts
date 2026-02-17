@@ -17,6 +17,7 @@ const DAY_COLORS = [
 ];
 
 const SINGLE_DESTINATION_RADIUS_KM = 55;
+const GEO_CACHE_TTL_MS = 1000 * 60 * 60 * 6; // 6 hours
 
 const LOCATION_ALIASES: Record<string, string> = {
   nyc: "New York City, NY, USA",
@@ -49,6 +50,9 @@ interface StopOutlier {
   distanceKm: number;
 }
 
+type GeoCacheEntry = { value: GeoAnchor | null; expiresAt: number };
+const geoCache = new Map<string, GeoCacheEntry>();
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -67,8 +71,14 @@ serve(async (req) => {
     const toText = normalizeLocationInput(to);
 
     const mapboxToken = Deno.env.get("MAPBOX_ACCESS_TOKEN");
-    const fromAnchor = mapboxToken ? await geocodeLocation(fromText, mapboxToken) : null;
-    const toAnchor = mapboxToken ? await geocodeLocation(toText, mapboxToken) : null;
+    let fromAnchor: GeoAnchor | null = null;
+    let toAnchor: GeoAnchor | null = null;
+    if (mapboxToken) {
+      [fromAnchor, toAnchor] = await Promise.all([
+        geocodeLocation(fromText, mapboxToken),
+        geocodeLocation(toText, mapboxToken),
+      ]);
+    }
     const isSingleDestinationTrip = isLikelySingleDestinationTrip(fromText, toText, fromAnchor, toAnchor);
 
     let systemPrompt = `You are an expert travel planner. Generate a detailed day-by-day trip itinerary.
@@ -109,7 +119,8 @@ TRAVEL MODE COST ESTIMATION:
 - This is a destination-focused trip centered on ${toAnchor.name} (${toAnchor.lat.toFixed(4)}, ${toAnchor.lng.toFixed(4)}).
 - Every activity stop must be within ${SINGLE_DESTINATION_RADIUS_KM} km of this destination center.
 - Do NOT include attractions from different metro areas.
-- If a place has multiple branches, choose the one in ${toAnchor.name}.`;
+- If a place has multiple branches, choose the one in ${toAnchor.name}.
+- Before returning, self-check every stop coordinate and replace any stop outside ${SINGLE_DESTINATION_RADIUS_KM} km.`;
     } else if (fromAnchor && toAnchor) {
       systemPrompt += `\n\nROUTE ANCHOR:
 - Start near ${fromAnchor.name} (${fromAnchor.lat.toFixed(4)}, ${fromAnchor.lng.toFixed(4)}), finish near ${toAnchor.name} (${toAnchor.lat.toFixed(4)}, ${toAnchor.lng.toFixed(4)}).
@@ -207,6 +218,11 @@ function normalizeLocationInput(value: unknown): string {
 
 async function geocodeLocation(query: string, token: string): Promise<GeoAnchor | null> {
   if (!query) return null;
+  const key = query.trim().toLowerCase();
+  const cached = geoCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value;
+  }
   const endpoint = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json`;
   const params = new URLSearchParams({
     access_token: token,
@@ -217,17 +233,23 @@ async function geocodeLocation(query: string, token: string): Promise<GeoAnchor 
   const response = await fetch(`${endpoint}?${params.toString()}`);
   if (!response.ok) {
     console.warn("Mapbox geocode failed:", response.status, query);
+    geoCache.set(key, { value: null, expiresAt: Date.now() + GEO_CACHE_TTL_MS });
     return null;
   }
   const data = await response.json();
   const feature = data?.features?.[0];
-  if (!feature?.center || !Array.isArray(feature.center) || feature.center.length < 2) return null;
+  if (!feature?.center || !Array.isArray(feature.center) || feature.center.length < 2) {
+    geoCache.set(key, { value: null, expiresAt: Date.now() + GEO_CACHE_TTL_MS });
+    return null;
+  }
   const [lng, lat] = feature.center as [number, number];
-  return {
+  const value = {
     name: feature.place_name || query,
     lat,
     lng,
   };
+  geoCache.set(key, { value, expiresAt: Date.now() + GEO_CACHE_TTL_MS });
+  return value;
 }
 
 function isLikelySingleDestinationTrip(

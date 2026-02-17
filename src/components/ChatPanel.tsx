@@ -225,6 +225,10 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
     setMessages(prev => [...prev, { id: `msg-${Date.now()}`, sender: "user", content, type: "text" }]);
   }, []);
 
+  const addBotMessageImmediate = useCallback((content: string, type: ChatMessage["type"] = "text") => {
+    setMessages(prev => [...prev, { id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, sender: "bot", content, type }]);
+  }, []);
+
   const updateItinerary = useCallback((updater: (prev: DayPlan[]) => DayPlan[]) => {
     setGeneratedItinerary(prev => {
       if (!prev) return prev;
@@ -376,13 +380,9 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
     setHasPromptedStays(false);
     onPreferencesUpdate?.({ interests: selectedInterests, pace: selectedPace, mustSees });
 
-    setTimeout(() => {
-      addBotMessage("Perfect. Give me a moment to build something great... 🗺️", "text", 400);
-      setTimeout(() => {
-        setMessages(prev => [...prev, { id: "loading", sender: "bot", content: "", type: "loading" }]);
-        generateItinerary(mustSees);
-      }, 1200);
-    }, 300);
+    addBotMessageImmediate("Perfect. Give me a moment to build something great... 🗺️");
+    setMessages(prev => [...prev, { id: `loading-${Date.now()}`, sender: "bot", content: "", type: "loading" }]);
+    void generateItinerary(mustSees);
   };
 
   const fetchStayRecommendations = useCallback(async (budgetVibe: string) => {
@@ -506,6 +506,7 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
   }, []);
 
   const generateItinerary = async (mustSees: string, adjustmentRequest?: string, currentItinerary?: DayPlan[]) => {
+    const start = performance.now();
     try {
       const { data, error } = await supabase.functions.invoke("generate-itinerary", {
         body: {
@@ -529,9 +530,10 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
 
       const itinerary: DayPlan[] = data.itinerary;
       setGeneratedItinerary(itinerary);
+      console.info(`[generate-itinerary] completed in ${Math.round(performance.now() - start)}ms`);
 
       // Remove loading, show itinerary
-      setMessages(prev => prev.filter(m => m.id !== "loading" && m.id !== "itinerary" && m.id !== "actions"));
+      setMessages(prev => prev.filter(m => m.type !== "loading" && m.id !== "itinerary" && m.id !== "actions"));
       setMessages(prev => [...prev, { id: "itinerary", sender: "bot", content: "", type: "itinerary" }]);
       onItineraryReady(itinerary);
 
@@ -554,7 +556,7 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
       }, 500);
     } catch (err: unknown) {
       console.error("Itinerary generation failed:", err);
-      setMessages(prev => prev.filter(m => m.id !== "loading"));
+      setMessages(prev => prev.filter(m => m.type !== "loading"));
       addBotMessage("Sorry, I couldn't generate your itinerary. Please try again.", "text", 400);
       toast({
         title: "Generation failed",
@@ -566,13 +568,9 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
 
   const handleActionChip = (action: string) => {
     addUserMessage(action);
-    setTimeout(() => {
-      addBotMessage("On it! Adjusting your itinerary... 🔄", "text", 400);
-      setTimeout(() => {
-        setMessages(prev => [...prev, { id: "loading", sender: "bot", content: "", type: "loading" }]);
-        generateItinerary(mustSeesValue || "None", action, generatedItinerary || undefined);
-      }, 1200);
-    }, 300);
+    addBotMessageImmediate("On it! Adjusting your itinerary... 🔄");
+    setMessages(prev => [...prev, { id: `loading-${Date.now()}`, sender: "bot", content: "", type: "loading" }]);
+    void generateItinerary(mustSeesValue || "None", action, generatedItinerary || undefined);
   };
 
   const handleComposerSubmit = () => {
@@ -610,13 +608,9 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
       return;
     }
 
-    setTimeout(() => {
-      addBotMessage("On it! Adjusting your itinerary... 🔄", "text", 300);
-      setTimeout(() => {
-        setMessages(prev => [...prev, { id: `composer-loading-${Date.now()}`, sender: "bot", content: "", type: "loading" }]);
-        generateItinerary(mustSeesValue || "None", request, generatedItinerary);
-      }, 900);
-    }, 220);
+    addBotMessageImmediate("On it! Adjusting your itinerary... 🔄");
+    setMessages(prev => [...prev, { id: `loading-${Date.now()}`, sender: "bot", content: "", type: "loading" }]);
+    void generateItinerary(mustSeesValue || "None", request, generatedItinerary);
   };
 
   const handleDeleteStop = useCallback((dayNumber: number, stopId: string) => {
