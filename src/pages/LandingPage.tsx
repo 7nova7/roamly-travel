@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, CalendarIcon, Map, Check } from "lucide-react";
@@ -36,17 +36,6 @@ export default function LandingPage() {
   const [dateMode, setDateMode] = useState<"flexible" | "specific">("flexible");
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [budgetVibe, setBudgetVibe] = useState(budgetVibes[1].label);
-  const videoRef = useRef<HTMLVideoElement>(null);
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (video) {
-      video.src = "/videos/hero-bg.mp4";
-      video.load();
-      video.play().catch(() => {});
-    }
-  }, []);
-
   const handlePlanTrip = () => {
     if (!to.trim()) return;
     if (roadTrip && !from.trim()) return;
@@ -91,14 +80,15 @@ export default function LandingPage() {
       <section className="pt-32 pb-20 px-4 sm:px-6 relative overflow-hidden">
         <div className="absolute inset-0 z-0 overflow-hidden">
           <video
-            ref={videoRef}
             autoPlay
             muted
             loop
             playsInline
-            preload="none"
-            className="min-w-full min-h-full object-cover" />
-
+            preload="auto"
+            className="min-w-full min-h-full object-cover bg-black"
+          >
+            <source src="/videos/hero-bg.mp4" type="video/mp4" />
+          </video>
         </div>
         <div className="absolute inset-0 bg-black/50 z-[1]" />
 
