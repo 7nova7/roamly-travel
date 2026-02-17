@@ -4,6 +4,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import { type DayPlan } from "@/data/demoTrip";
 import { getMapboxToken, MAPBOX_STYLES } from "@/lib/mapbox";
 import { MapLayerSwitcher } from "@/components/MapLayerSwitcher";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface TripMapProps {
   itinerary: DayPlan[] | null;
@@ -22,6 +23,8 @@ interface TripMapProps {
 const DAY_COLORS = ["#1B4332", "#2563EB", "#F4A261", "#D6336C", "#6D28D9", "#0D9488", "#EAB308"];
 const TERRAIN_SOURCE_ID = "mapbox-dem";
 const THREE_D_BUILDINGS_LAYER_ID = "3d-buildings";
+const MOBILE_3D_MIN_ZOOM = 11.8;
+const DESKTOP_3D_MIN_ZOOM = 10.8;
 
 // Icon SVG paths for marker categories
 const TAG_ICONS: Record<string, string> = {
@@ -74,7 +77,7 @@ function add3DBuildingsLayer(map: mapboxgl.Map) {
     source: "composite",
     "source-layer": "building",
     filter: ["==", ["get", "extrude"], "true"],
-    minzoom: 13,
+    minzoom: 11.5,
     paint: {
       "fill-extrusion-color": [
         "interpolate",
@@ -96,15 +99,22 @@ function add3DBuildingsLayer(map: mapboxgl.Map) {
   map.addLayer(buildingsLayer, labelLayerId);
 }
 
-function applyTerrainMode(map: mapboxgl.Map, styleId: string, previousPitch: number, previousBearing: number) {
+function applyTerrainMode(
+  map: mapboxgl.Map,
+  styleId: string,
+  previousPitch: number,
+  previousBearing: number,
+  isMobile: boolean,
+) {
   if (styleId === "terrain") {
     ensureTerrainSource(map);
-    map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: 1.55 });
+    map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: isMobile ? 1.35 : 1.55 });
     map.setFog({});
     add3DBuildingsLayer(map);
 
-    const targetPitch = previousPitch >= 52 ? previousPitch : 62;
-    const targetBearing = Math.abs(previousBearing) < 1 ? -20 : previousBearing;
+    const minPitch = isMobile ? 50 : 62;
+    const targetPitch = previousPitch >= minPitch ? previousPitch : minPitch;
+    const targetBearing = Math.abs(previousBearing) < 1 ? (isMobile ? -12 : -20) : previousBearing;
     map.easeTo({ pitch: targetPitch, bearing: targetBearing, duration: 700, essential: true });
     return;
   }
@@ -117,6 +127,7 @@ function applyTerrainMode(map: mapboxgl.Map, styleId: string, previousPitch: num
 }
 
 export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDay, onResetFocus, onFocusDay, onStopClick, visible = true, zoomTarget, onZoomComplete, previewPin }: TripMapProps) {
+  const isMobile = useIsMobile();
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<{ [key: string]: { marker: mapboxgl.Marker; el: HTMLDivElement } }>({});
@@ -193,7 +204,7 @@ export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDa
         if (!cancelled) {
           mapInstance.current = map;
           setMapReady(true);
-          applyTerrainMode(map, "outdoors", map.getPitch(), map.getBearing());
+          applyTerrainMode(map, "outdoors", map.getPitch(), map.getBearing(), false);
         }
       });
     });
@@ -226,10 +237,17 @@ export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDa
       map.setZoom(zoom);
       map.setPitch(pitch);
       map.setBearing(bearing);
-      applyTerrainMode(map, styleId, pitch, bearing);
+      applyTerrainMode(map, styleId, pitch, bearing, isMobile);
       // Re-add route and markers without resetting position
       addRouteAndMarkers(true);
       renderPreviewPin();
+
+      if (styleId === "terrain") {
+        const min3DZoom = isMobile ? MOBILE_3D_MIN_ZOOM : DESKTOP_3D_MIN_ZOOM;
+        if (map.getZoom() < min3DZoom) {
+          map.easeTo({ zoom: min3DZoom, duration: 700, essential: true });
+        }
+      }
     });
   };
 
@@ -383,8 +401,17 @@ export function TripMap({ itinerary, highlightedStop, onHighlightStop, focusedDa
   useEffect(() => {
     const map = mapInstance.current;
     if (!map || !visible) return;
-    setTimeout(() => map.resize(), 100);
-  }, [visible]);
+    setTimeout(() => {
+      map.resize();
+      if (activeStyle === "terrain") {
+        applyTerrainMode(map, "terrain", map.getPitch(), map.getBearing(), isMobile);
+        const min3DZoom = isMobile ? MOBILE_3D_MIN_ZOOM : DESKTOP_3D_MIN_ZOOM;
+        if (map.getZoom() < min3DZoom) {
+          map.easeTo({ zoom: min3DZoom, duration: 450, essential: true });
+        }
+      }
+    }, 100);
+  }, [visible, activeStyle, isMobile]);
 
   // Highlight markers
   useEffect(() => {
