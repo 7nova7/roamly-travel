@@ -90,6 +90,10 @@ export default function TripWorkspace() {
     setPreferences(prefs);
   };
 
+  const mobileToggleBottom = showMap
+    ? "calc(env(safe-area-inset-bottom, 0px) + 1rem)"
+    : "calc(env(safe-area-inset-bottom, 0px) + 5.75rem)";
+
   return (
     <div className="h-screen flex flex-col bg-background">
       {/* Top Nav */}
@@ -178,7 +182,10 @@ export default function TripWorkspace() {
 
       {/* Mobile sticky bottom map/chat toggle — only after itinerary is ready */}
       {isMobile && itinerary && (
-        <div className="fixed bottom-6 right-4 z-50">
+        <div
+          className="fixed right-4 z-50 transition-[bottom] duration-200"
+          style={{ bottom: mobileToggleBottom }}
+        >
           <Button
             onClick={() => setShowMap(!showMap)}
             className="shadow-lg rounded-full h-12 px-5 text-sm font-body font-semibold gap-2"
