@@ -138,6 +138,17 @@ const CHAT_ACK_PHRASES = [
   "perfect",
 ];
 
+const CHAT_DECLINE_PHRASES = [
+  "no",
+  "nope",
+  "nah",
+  "not now",
+  "no thanks",
+  "pass",
+  "skip",
+  "maybe later",
+];
+
 const CHAT_ACTION_KEYWORDS = [
   "add",
   "remove",
@@ -240,6 +251,22 @@ function containsPhrase(value: string, phrases: string[]): boolean {
   );
 }
 
+function isSimpleDecline(value: string): boolean {
+  const words = value.split(" ").filter(Boolean);
+  return words.length <= 3 && CHAT_DECLINE_PHRASES.includes(value);
+}
+
+function botPromptExpectsYesNo(content: string): boolean {
+  const prompt = normalizeIntentText(content);
+  return (
+    prompt.includes("want to add another") ||
+    prompt.includes("adjust the itinerary") ||
+    prompt.includes("want me to") ||
+    prompt.includes("want me") ||
+    prompt.includes("want to")
+  );
+}
+
 interface ChatPanelProps {
   tripConfig: TripConfig;
   onHighlightStop: (stopId: string | null) => void;
@@ -278,6 +305,7 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
   const [addForm, setAddForm] = useState({ name: "", time: "", placeId: null as string | null });
   const [isAddingStop, setIsAddingStop] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const planSectionRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
   const addBotMessage = useCallback((content: string, type: ChatMessage["type"] = "text", delay = 800) => {
@@ -290,6 +318,17 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
 
   const addUserMessage = useCallback((content: string) => {
     setMessages(prev => [...prev, { id: `msg-${Date.now()}`, sender: "user", content, type: "text" }]);
+  }, []);
+
+  const scrollToPlanSection = useCallback(() => {
+    const container = scrollRef.current;
+    const target = planSectionRef.current;
+    if (!container || !target) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const nextTop = container.scrollTop + (targetRect.top - containerRect.top) - 8;
+    container.scrollTo({ top: Math.max(nextTop, 0), behavior: "smooth" });
   }, []);
 
   const addBotMessageImmediate = useCallback((content: string, type: ChatMessage["type"] = "text") => {
@@ -502,6 +541,12 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
       setPlanTab("stays");
       setMessages(prev => prev.filter(m => m.type !== "loading"));
       addBotMessage(`Found ${parsed.length} accommodations matched to your trip. Open the Stays tab above your itinerary.`, "text", 320);
+      window.setTimeout(() => {
+        scrollToPlanSection();
+      }, 450);
+      window.setTimeout(() => {
+        scrollToPlanSection();
+      }, 900);
     } catch (err: unknown) {
       console.error("Stay recommendations failed:", err);
       setMessages(prev => prev.filter(m => m.type !== "loading"));
@@ -520,6 +565,7 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
     getErrorMessage,
     mustSeesValue,
     normalizeStayOption,
+    scrollToPlanSection,
     selectedInterests,
     selectedPace,
     toast,
@@ -649,10 +695,15 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
 
     const lower = request.toLowerCase();
     const normalized = normalizeIntentText(request);
+    const lastBotText = [...messages]
+      .reverse()
+      .find((msg) => msg.sender === "bot" && msg.type === "text")?.content || "";
     const hasAction = hasActionIntent(normalized);
     const hasQuestion = request.includes("?");
     const asksForStays = lower.includes("stay") || lower.includes("hotel") || lower.includes("accommodation");
-    const wantsToClose = !hasQuestion && !hasAction && !asksForStays && containsPhrase(normalized, CHAT_CLOSE_PHRASES);
+    const directClose = containsPhrase(normalized, CHAT_CLOSE_PHRASES);
+    const contextualDecline = isSimpleDecline(normalized) && botPromptExpectsYesNo(lastBotText);
+    const wantsToClose = !hasQuestion && !hasAction && !asksForStays && (directClose || contextualDecline);
     const passiveAck = !hasQuestion && !hasAction && !asksForStays && containsPhrase(normalized, CHAT_ACK_PHRASES);
 
     if (wantsToClose) {
@@ -669,6 +720,9 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
       if (stayOptions.length > 0) {
         setPlanTab("stays");
         addBotMessage("Already on it — I switched you to the Stays tab so you can pick one to add.", "text", 250);
+        window.setTimeout(() => {
+          scrollToPlanSection();
+        }, 300);
       } else {
         openStayBudgetPrompt();
       }
@@ -973,7 +1027,7 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
                   )}
                   {msg.type === "loading" && <LoadingAnimation />}
                   {msg.type === "itinerary" && generatedItinerary && (
-                    <div className="w-full space-y-3">
+                    <div ref={planSectionRef} className="w-full space-y-3">
                       <div className="inline-flex rounded-xl border border-border/60 bg-card/70 backdrop-blur-sm p-1 shadow-sm">
                         <button
                           onClick={() => setPlanTab("itinerary")}
