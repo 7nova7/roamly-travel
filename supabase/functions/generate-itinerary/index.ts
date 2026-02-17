@@ -163,7 +163,7 @@ QUALITY CONTROL FAILURE:
       }
     }
 
-    const itinerary = generatedDays.map((day: Record<string, unknown>, idx: number) => ({
+    const itinerary = (generatedDays as Record<string, unknown>[]).map((day, idx) => ({
       ...day,
       color: DAY_COLORS[idx % DAY_COLORS.length],
     }));
