@@ -738,6 +738,34 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
     });
   }, [toast, updateItinerary]);
 
+  const handleReorderStops = useCallback((dayNumber: number, orderedStopIds: string[]) => {
+    if (!orderedStopIds.length) return;
+
+    updateItinerary((prev) => prev.map((day) => {
+      if (day.day !== dayNumber) return day;
+
+      const stopLookup = new Map(day.stops.map((stop) => [stop.id, stop]));
+      const reordered = orderedStopIds
+        .map((stopId) => stopLookup.get(stopId))
+        .filter((stop): stop is DayPlan["stops"][number] => Boolean(stop));
+
+      if (reordered.length === 0) return day;
+
+      const seen = new Set(reordered.map((stop) => stop.id));
+      day.stops.forEach((stop) => {
+        if (!seen.has(stop.id)) reordered.push(stop);
+      });
+
+      const isSameOrder = reordered.length === day.stops.length && reordered.every((stop, idx) => stop.id === day.stops[idx]?.id);
+      if (isSameOrder) return day;
+
+      return {
+        ...day,
+        stops: resequenceStopTimes(reordered),
+      };
+    }));
+  }, [updateItinerary]);
+
   const openAddStop = useCallback((dayNumber: number) => {
     setAddDay(dayNumber);
     setAddForm({ name: "", time: "", placeId: null });
@@ -997,6 +1025,7 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
                                 onDeleteStop={handleDeleteStop}
                                 onAddStop={openAddStop}
                                 onMoveStop={handleMoveStop}
+                                onReorderStops={handleReorderStops}
                               />
                               {addDay === day.day && (
                                 <AddActivityForm
