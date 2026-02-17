@@ -101,8 +101,21 @@ export default {
           "30%": { opacity: "1", transform: "translateY(-4px)" },
         },
         "draw-route": {
-          "0%": { strokeDashoffset: "1000" },
-          "100%": { strokeDashoffset: "0" },
+          "0%": { strokeDashoffset: "160" },
+          "50%": { strokeDashoffset: "0" },
+          "100%": { strokeDashoffset: "-160" },
+        },
+        "route-flow": {
+          "0%": { strokeDashoffset: "36" },
+          "100%": { strokeDashoffset: "-36" },
+        },
+        "pin-pop": {
+          "0%, 100%": { transform: "scale(1)", opacity: "0.9" },
+          "50%": { transform: "scale(1.18)", opacity: "1" },
+        },
+        "breathe-soft": {
+          "0%, 100%": { opacity: "0.7" },
+          "50%": { opacity: "1" },
         },
       },
       animation: {
@@ -114,7 +127,10 @@ export default {
         "scale-in": "scale-in 0.2s ease-out",
         "pulse-glow": "pulse-glow 2s ease-in-out infinite",
         "typing-dot": "typing-dot 1.4s infinite ease-in-out",
-        "draw-route": "draw-route 2s ease-in-out forwards",
+        "draw-route": "draw-route 1.8s ease-in-out infinite",
+        "route-flow": "route-flow 1.2s linear infinite",
+        "pin-pop": "pin-pop 1.2s ease-in-out infinite",
+        "breathe-soft": "breathe-soft 1.6s ease-in-out infinite",
       },
     },
   },

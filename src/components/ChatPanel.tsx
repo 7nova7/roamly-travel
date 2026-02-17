@@ -8,7 +8,7 @@ import { INTEREST_OPTIONS, PACE_OPTIONS, type DayPlan, type TripConfig } from "@
 import { DayCard } from "./DayCard";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { getMapboxToken } from "@/lib/mapbox";
+import { loadGoogleMaps } from "@/lib/google-maps";
 
 interface ChatMessage {
   id: string;
@@ -31,10 +31,77 @@ interface StayOption {
   lng: number;
 }
 
+interface ActivitySearchResult {
+  place_id?: string;
+  formatted_address?: string;
+  name?: string;
+  geometry?: {
+    location?: {
+      lat: number | (() => number);
+      lng: number | (() => number);
+    };
+  };
+}
+
+interface GeoPoint {
+  lat: number;
+  lng: number;
+}
+
+interface GeocodeResult {
+  geometry?: {
+    location?: {
+      lat: number | (() => number);
+      lng: number | (() => number);
+    };
+  };
+}
+
+interface GoogleMapsPlacesLike {
+  Geocoder?: new () => {
+    geocode: (
+      request: { address: string },
+      callback: (results: GeocodeResult[] | null, status: string) => void,
+    ) => void;
+  };
+  places?: {
+    PlacesService: new (container: Element) => {
+      textSearch: (
+        request: { query: string; location?: GeoPoint; radius?: number },
+        callback: (results: ActivitySearchResult[] | null, status: string) => void,
+      ) => void;
+      getDetails: (
+        request: { placeId: string; fields?: string[] },
+        callback: (result: ActivitySearchResult | null, status: string) => void,
+      ) => void;
+    };
+    Autocomplete: new (
+      input: HTMLInputElement,
+      options?: { fields?: string[]; types?: string[] },
+    ) => GoogleAutocompleteInstance;
+    PlacesServiceStatus: {
+      OK: string;
+    };
+  };
+}
+
+interface GoogleAutocompleteInstance {
+  addListener: (eventName: "place_changed", handler: () => void) => void;
+  getPlace: () => ActivitySearchResult;
+  setBounds: (bounds: { north: number; south: number; east: number; west: number }) => void;
+  setOptions: (options: { strictBounds?: boolean }) => void;
+}
+
 const STAY_BUDGET_VIBES = [
   { label: "Backpack & street snacks", hint: "Smart-value stays close to the action." },
   { label: "Main character moments", hint: "Stylish comfort with great location balance." },
   { label: "Suite life energy", hint: "Premium hotels with memorable views and perks." },
+];
+
+const LOADING_STEPS = [
+  "Optimizing your route",
+  "Scoring nearby spots",
+  "Balancing travel time + vibe",
 ];
 
 const CHAT_CLOSE_PHRASES = [
@@ -208,7 +275,7 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
   const [isFindingStays, setIsFindingStays] = useState(false);
   const [hasPromptedStays, setHasPromptedStays] = useState(false);
   const [addDay, setAddDay] = useState<number | null>(null);
-  const [addForm, setAddForm] = useState({ name: "", time: "", location: "" });
+  const [addForm, setAddForm] = useState({ name: "", time: "", placeId: null as string | null });
   const [isAddingStop, setIsAddingStop] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
@@ -673,7 +740,7 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
 
   const openAddStop = useCallback((dayNumber: number) => {
     setAddDay(dayNumber);
-    setAddForm({ name: "", time: "", location: "" });
+    setAddForm({ name: "", time: "", placeId: null });
   }, []);
 
   const closeAddStop = useCallback(() => {
@@ -686,7 +753,7 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
       return;
     }
 
-    const baseQuery = (addForm.location.trim() || addForm.name.trim());
+    const baseQuery = addForm.name.trim();
     const query = tripConfig.to && !baseQuery.toLowerCase().includes(tripConfig.to.toLowerCase())
       ? `${baseQuery} ${tripConfig.to}`
       : baseQuery;
@@ -694,22 +761,100 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
     setIsAddingStop(true);
 
     try {
-      const token = await getMapboxToken();
-      const resp = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${token}&limit=1&types=poi,address,place`
-      );
-      if (!resp.ok) throw new Error("Map lookup failed");
-      const data = await resp.json();
-      const feature = data?.features?.[0];
-      if (!feature?.center?.length) {
-        throw new Error("No matching location found. Try a more specific address.");
+      await loadGoogleMaps();
+      const gm = (window as Window & { google?: { maps?: GoogleMapsPlacesLike } }).google?.maps;
+      if (!gm?.places) {
+        throw new Error("Google Places is unavailable right now.");
       }
 
-      const [lng, lat] = feature.center as [number, number];
+      const service = new gm.places.PlacesService(document.createElement("div"));
+      const getDestinationBias = () => new Promise<GeoPoint | null>((resolve) => {
+        if (!tripConfig.to?.trim() || !gm.Geocoder) {
+          resolve(null);
+          return;
+        }
+
+        const geocoder = new gm.Geocoder();
+        geocoder.geocode({ address: tripConfig.to }, (results, status) => {
+          const location = results?.[0]?.geometry?.location;
+          if (status !== "OK" || !location) {
+            resolve(null);
+            return;
+          }
+
+          const lat = typeof location.lat === "function" ? location.lat() : location.lat;
+          const lng = typeof location.lng === "function" ? location.lng() : location.lng;
+          if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+            resolve(null);
+            return;
+          }
+          resolve({ lat, lng });
+        });
+      });
+
+      const getPlaceById = (placeId: string) =>
+        new Promise<ActivitySearchResult | null>((resolve) => {
+          service.getDetails(
+            { placeId, fields: ["name", "formatted_address", "geometry"] },
+            (result: ActivitySearchResult | null, status: string) => {
+              if (status === gm.places.PlacesServiceStatus.OK && result?.geometry?.location) {
+                resolve(result);
+                return;
+              }
+              resolve(null);
+            },
+          );
+        });
+
+      const getTopTextSearchMatch = () => new Promise<ActivitySearchResult>((resolve, reject) => {
+        const destinationBiasPromise = getDestinationBias();
+        destinationBiasPromise.then((destinationBias) => {
+          const request = destinationBias
+            ? { query, location: destinationBias, radius: 30000 }
+            : { query };
+
+          service.textSearch(
+            request,
+            (results: ActivitySearchResult[] | null, status: string) => {
+              if (status !== gm.places.PlacesServiceStatus.OK || !results?.length) {
+                reject(new Error("No matching location found. Try a more specific activity keyword."));
+                return;
+              }
+              resolve(results[0]);
+            },
+          );
+        }).catch(() => {
+          service.textSearch(
+            { query },
+            (results: ActivitySearchResult[] | null, status: string) => {
+              if (status !== gm.places.PlacesServiceStatus.OK || !results?.length) {
+                reject(new Error("No matching location found. Try a more specific activity keyword."));
+                return;
+              }
+              resolve(results[0]);
+            },
+          );
+        });
+      });
+
+      const topMatch = addForm.placeId
+        ? (await getPlaceById(addForm.placeId)) || (await getTopTextSearchMatch())
+        : await getTopTextSearchMatch();
+
+      const location = topMatch?.geometry?.location;
+      if (!location) {
+        throw new Error("No map coordinates found for that activity.");
+      }
+      const lat = typeof location.lat === "function" ? location.lat() : location.lat;
+      const lng = typeof location.lng === "function" ? location.lng() : location.lng;
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        throw new Error("No valid coordinates found for that activity.");
+      }
+
       const newStop = {
         id: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         time: addForm.time.trim() || "Anytime",
-        name: addForm.name.trim(),
+        name: typeof topMatch?.name === "string" && topMatch.name.trim() ? topMatch.name.trim() : addForm.name.trim(),
         description: "Custom activity added by you.",
         hours: "Hours vary",
         cost: "Cost varies",
@@ -725,12 +870,12 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
       )));
 
       setAddDay(null);
-      setAddForm({ name: "", time: "", location: "" });
+      setAddForm({ name: "", time: "", placeId: null });
       toast({ title: "Activity added", description: `Added to Day ${addDay}.` });
     } catch (err: unknown) {
       toast({
         title: "Couldn’t add activity",
-        description: getErrorMessage(err, "Try a more specific place or address."),
+        description: getErrorMessage(err, "Try a more specific activity keyword."),
         variant: "destructive",
       });
     } finally {
@@ -856,6 +1001,7 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
                               {addDay === day.day && (
                                 <AddActivityForm
                                   dayNumber={day.day}
+                                  destination={tripConfig.to}
                                   value={addForm}
                                   onChange={setAddForm}
                                   onCancel={closeAddStop}
@@ -1090,22 +1236,73 @@ function PacePicker({ onSelect }: { onSelect: (s: string) => void }) {
 }
 
 function LoadingAnimation() {
+  const [step, setStep] = useState(0);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setStep((prev) => (prev + 1) % LOADING_STEPS.length);
+    }, 1600);
+    return () => window.clearInterval(timer);
+  }, []);
+
   return (
     <div className="w-full max-w-[85%] border border-border/60 bg-card/75 backdrop-blur-sm rounded-2xl rounded-tl-md p-6 flex flex-col items-center gap-3 shadow-sm">
-      <svg width="120" height="40" viewBox="0 0 120 40" className="text-accent">
+      <svg width="136" height="44" viewBox="0 0 136 44" className="text-accent">
         <path
-          d="M10 30 Q30 10 50 25 T90 15 T110 20"
+          d="M12 32 Q34 10 56 26 T98 16 T124 22"
           fill="none"
           stroke="currentColor"
           strokeWidth="2.5"
-          strokeDasharray="1000"
           strokeLinecap="round"
+          className="opacity-30"
+        />
+        <path
+          d="M12 32 Q34 10 56 26 T98 16 T124 22"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeDasharray="160"
           className="animate-draw-route"
         />
-        <circle cx="10" cy="30" r="4" fill="hsl(var(--primary))" />
-        <circle cx="110" cy="20" r="4" fill="hsl(var(--accent))" />
+        <path
+          d="M12 32 Q34 10 56 26 T98 16 T124 22"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeDasharray="8 10"
+          className="animate-route-flow opacity-80"
+        />
+        <circle cx="12" cy="32" r="4.5" fill="hsl(var(--primary))" className="animate-pin-pop" />
+        <circle cx="124" cy="22" r="4.5" fill="hsl(var(--accent))" className="animate-pin-pop [animation-delay:220ms]" />
       </svg>
-      <p className="text-sm font-body text-muted-foreground">Optimizing your route...</p>
+
+      <AnimatePresence mode="wait">
+        <motion.p
+          key={LOADING_STEPS[step]}
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -4 }}
+          transition={{ duration: 0.2 }}
+          className="text-sm font-body text-muted-foreground"
+        >
+          {LOADING_STEPS[step]}
+          <span className="inline-flex ml-1">
+            <span className="animate-typing-dot [animation-delay:0ms]">.</span>
+            <span className="animate-typing-dot [animation-delay:160ms]">.</span>
+            <span className="animate-typing-dot [animation-delay:320ms]">.</span>
+          </span>
+        </motion.p>
+      </AnimatePresence>
+
+      <div className="relative h-1.5 w-52 overflow-hidden rounded-full bg-secondary/80">
+        <motion.div
+          className="absolute left-0 top-0 h-full w-16 rounded-full bg-accent/85 shadow-[0_0_14px_hsl(var(--accent)/0.45)]"
+          animate={{ x: ["-30%", "250%"] }}
+          transition={{ duration: 1.15, repeat: Infinity, ease: "easeInOut" }}
+        />
+      </div>
     </div>
   );
 }
@@ -1289,8 +1486,112 @@ function StayRecommendationsPanel({
   );
 }
 
+function ActivityAutocompleteInput({
+  value,
+  destination,
+  onChange,
+  onPlaceSelect,
+  placeholder,
+}: {
+  value: string;
+  destination: string;
+  onChange: (value: string) => void;
+  onPlaceSelect: (placeId: string | null) => void;
+  placeholder: string;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const autocompleteRef = useRef<GoogleAutocompleteInstance | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const loadTriggered = useRef(false);
+
+  const triggerLoad = useCallback(() => {
+    if (loadTriggered.current) return;
+    loadTriggered.current = true;
+    loadGoogleMaps().then(() => setIsLoaded(true)).catch(() => {
+      // Silent fallback: typing still works and submit resolves with text search.
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!isLoaded || !inputRef.current || autocompleteRef.current) return;
+    const gm = (window as Window & { google?: { maps?: GoogleMapsPlacesLike } }).google?.maps;
+    if (!gm?.places?.Autocomplete) return;
+
+    const autocomplete = new gm.places.Autocomplete(inputRef.current, {
+      fields: ["place_id", "name", "formatted_address", "geometry"],
+      types: ["establishment"],
+    });
+
+    autocomplete.addListener("place_changed", () => {
+      const place = autocomplete.getPlace();
+      if (typeof place.place_id === "string" && place.place_id.trim()) {
+        onPlaceSelect(place.place_id);
+      } else {
+        onPlaceSelect(null);
+      }
+
+      const placeLabel = typeof place.name === "string" && place.name.trim()
+        ? place.name.trim()
+        : typeof place.formatted_address === "string" && place.formatted_address.trim()
+          ? place.formatted_address.trim()
+          : value;
+      onChange(placeLabel);
+    });
+
+    autocompleteRef.current = autocomplete;
+  }, [isLoaded, onChange, onPlaceSelect, value]);
+
+  useEffect(() => {
+    if (!isLoaded || !destination.trim()) return;
+    const autocomplete = autocompleteRef.current;
+    const gm = (window as Window & { google?: { maps?: GoogleMapsPlacesLike } }).google?.maps;
+    if (!autocomplete || !gm?.Geocoder) return;
+
+    let cancelled = false;
+    const geocoder = new gm.Geocoder();
+    geocoder.geocode({ address: destination }, (results, status) => {
+      if (cancelled) return;
+      const location = results?.[0]?.geometry?.location;
+      if (status !== "OK" || !location) return;
+
+      const lat = typeof location.lat === "function" ? location.lat() : location.lat;
+      const lng = typeof location.lng === "function" ? location.lng() : location.lng;
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+      const latPad = 0.32;
+      const lngPad = 0.45;
+      autocomplete.setBounds({
+        north: lat + latPad,
+        south: lat - latPad,
+        east: lng + lngPad,
+        west: lng - lngPad,
+      });
+      autocomplete.setOptions({ strictBounds: false });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [destination, isLoaded]);
+
+  return (
+    <input
+      ref={inputRef}
+      value={value}
+      onChange={(e) => {
+        onPlaceSelect(null);
+        onChange(e.target.value);
+      }}
+      onFocus={triggerLoad}
+      placeholder={placeholder}
+      className="w-full rounded-xl border border-border bg-card px-3 py-2 text-xs font-body focus:outline-none focus:ring-2 focus:ring-ring"
+    />
+  );
+}
+
 function AddActivityForm({
   dayNumber,
+  destination,
   value,
   onChange,
   onCancel,
@@ -1298,8 +1599,9 @@ function AddActivityForm({
   isSubmitting,
 }: {
   dayNumber: number;
-  value: { name: string; time: string; location: string };
-  onChange: (next: { name: string; time: string; location: string }) => void;
+  destination: string;
+  value: { name: string; time: string; placeId: string | null };
+  onChange: (next: { name: string; time: string; placeId: string | null }) => void;
   onCancel: () => void;
   onSubmit: () => void;
   isSubmitting: boolean;
@@ -1317,22 +1619,17 @@ function AddActivityForm({
         </button>
       </div>
       <div className="grid gap-2">
-        <input
+        <ActivityAutocompleteInput
           value={value.name}
-          onChange={(e) => onChange({ ...value, name: e.target.value })}
+          destination={destination}
+          onChange={(nextName) => onChange({ ...value, name: nextName, placeId: null })}
+          onPlaceSelect={(placeId) => onChange({ ...value, placeId })}
           placeholder="Activity name (required)"
-          className="w-full rounded-xl border border-border bg-card px-3 py-2 text-xs font-body focus:outline-none focus:ring-2 focus:ring-ring"
         />
         <input
           value={value.time}
           onChange={(e) => onChange({ ...value, time: e.target.value })}
           placeholder="Time (optional, e.g., 2:00 PM)"
-          className="w-full rounded-xl border border-border bg-card px-3 py-2 text-xs font-body focus:outline-none focus:ring-2 focus:ring-ring"
-        />
-        <input
-          value={value.location}
-          onChange={(e) => onChange({ ...value, location: e.target.value })}
-          placeholder="Location or address (for map pin)"
           className="w-full rounded-xl border border-border bg-card px-3 py-2 text-xs font-body focus:outline-none focus:ring-2 focus:ring-ring"
         />
       </div>
@@ -1354,7 +1651,7 @@ function AddActivityForm({
         </button>
       </div>
       <p className="mt-2 text-[10px] font-body text-muted-foreground">
-        Tip: add a specific place or address for best map results.
+        We auto-find the place and pin it on the map from your activity keyword.
       </p>
     </div>
   );
