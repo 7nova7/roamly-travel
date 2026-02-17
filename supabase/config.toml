@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.get-destination-details]
 verify_jwt = false
+
+[functions.recommend-stays]
+verify_jwt = false

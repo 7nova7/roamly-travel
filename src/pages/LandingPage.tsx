@@ -296,27 +296,25 @@ export default function LandingPage() {
                     )}
                   </div>
 
-                  {dateMode === "flexible" && (
-                    <div>
-                      <label className="text-xs font-body font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">Budget vibe</label>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        {budgetVibes.map((option) => (
-                          <button
-                            key={option.label}
-                            onClick={() => setBudgetVibe(option.label)}
-                            className={`rounded-xl border p-3 text-left transition-all ${
-                              budgetVibe === option.label
-                                ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                                : "bg-card border-border hover:bg-secondary/50"
-                            }`}
-                          >
-                            <p className="text-xs font-body font-semibold">{option.label}</p>
-                            <p className={`text-[11px] font-body mt-1 ${budgetVibe === option.label ? "text-primary-foreground/80" : "text-muted-foreground"}`}>{option.hint}</p>
-                          </button>
-                        ))}
-                      </div>
+                  <div>
+                    <label className="text-xs font-body font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">Budget vibe</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      {budgetVibes.map((option) => (
+                        <button
+                          key={option.label}
+                          onClick={() => setBudgetVibe(option.label)}
+                          className={`rounded-xl border p-3 text-left transition-all ${
+                            budgetVibe === option.label
+                              ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                              : "bg-card border-border hover:bg-secondary/50"
+                          }`}
+                        >
+                          <p className="text-xs font-body font-semibold">{option.label}</p>
+                          <p className={`text-[11px] font-body mt-1 ${budgetVibe === option.label ? "text-primary-foreground/80" : "text-muted-foreground"}`}>{option.hint}</p>
+                        </button>
+                      ))}
                     </div>
-                  )}
+                  </div>
 
                   <div className="flex items-center gap-3">
                     <Button

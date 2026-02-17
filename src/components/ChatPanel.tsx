@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, X, Plus, Loader2, ArrowRight, Compass, Sparkles } from "lucide-react";
+import { Send, X, Plus, Loader2, ArrowRight, Compass, Sparkles, BedDouble, MapPin, Building2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { TypingIndicator } from "@/components/TypingIndicator";
@@ -14,8 +14,28 @@ interface ChatMessage {
   id: string;
   sender: "bot" | "user";
   content: string;
-  type: "text" | "interests" | "pace" | "input" | "loading" | "itinerary" | "actions";
+  type: "text" | "interests" | "pace" | "input" | "loading" | "itinerary" | "actions" | "stay-intent" | "stay-budget";
 }
+
+interface StayOption {
+  id: string;
+  name: string;
+  type: string;
+  neighborhood: string;
+  address: string;
+  nightlyPrice: string;
+  style: string;
+  why: string;
+  bestFor: string;
+  lat: number;
+  lng: number;
+}
+
+const STAY_BUDGET_VIBES = [
+  { label: "Backpack & street snacks", hint: "Smart-value stays close to the action." },
+  { label: "Main character moments", hint: "Stylish comfort with great location balance." },
+  { label: "Suite life energy", hint: "Premium hotels with memorable views and perks." },
+];
 
 interface ChatPanelProps {
   tripConfig: TripConfig;
@@ -41,6 +61,11 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [selectedPace, setSelectedPace] = useState("");
   const [mustSeesValue, setMustSeesValue] = useState("");
+  const [stayOptions, setStayOptions] = useState<StayOption[]>([]);
+  const [stayBudgetVibe, setStayBudgetVibe] = useState("");
+  const [planTab, setPlanTab] = useState<"itinerary" | "stays">("itinerary");
+  const [isFindingStays, setIsFindingStays] = useState(false);
+  const [hasPromptedStays, setHasPromptedStays] = useState(false);
   const [addDay, setAddDay] = useState<number | null>(null);
   const [addForm, setAddForm] = useState({ name: "", time: "", location: "" });
   const [isAddingStop, setIsAddingStop] = useState(false);
@@ -68,10 +93,32 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
     });
   }, [onItineraryReady]);
 
+  const getErrorMessage = useCallback((err: unknown, fallback: string) => (
+    err instanceof Error ? err.message : fallback
+  ), []);
+
   const startConversation = useCallback(() => {
     if (chatInitiated) return;
     setChatInitiated(true);
   }, [chatInitiated]);
+
+  const openStayBudgetPrompt = useCallback(() => {
+    addBotMessage("Love that. Pick your stay vibe and I’ll curate accommodations that fit your trip.", "text", 350);
+    setTimeout(() => {
+      setMessages(prev => [...prev, { id: `stay-budget-${Date.now()}`, sender: "bot", content: "", type: "stay-budget" }]);
+    }, 1100);
+  }, [addBotMessage]);
+
+  const promptStayDiscovery = useCallback(() => {
+    if (hasPromptedStays) return;
+    setHasPromptedStays(true);
+    setTimeout(() => {
+      addBotMessage("Want me to scout great accommodations near your itinerary too?", "text", 500);
+      setTimeout(() => {
+        setMessages(prev => [...prev, { id: `stay-intent-${Date.now()}`, sender: "bot", content: "", type: "stay-intent" }]);
+      }, 1200);
+    }, 450);
+  }, [addBotMessage, hasPromptedStays]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -101,6 +148,9 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
         setMessages(prev => [...prev, { id: "itinerary", sender: "bot", content: "", type: "itinerary" }]);
         setTimeout(() => {
           setMessages(prev => [...prev, { id: `actions-${Date.now()}`, sender: "bot", content: "", type: "actions" }]);
+          setTimeout(() => {
+            promptStayDiscovery();
+          }, 900);
         }, 800);
       }, 1100);
       return;
@@ -120,7 +170,7 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
     setTimeout(() => {
       setMessages(prev => [...prev, { id: "interests", sender: "bot", content: "", type: "interests" }]);
     }, 1400);
-  }, [chatInitiated, phase, addBotMessage, tripConfig, initialItinerary, onItineraryReady]);
+  }, [chatInitiated, phase, addBotMessage, tripConfig, initialItinerary, onItineraryReady, promptStayDiscovery]);
 
   const handleInterestSelect = (selected: string[]) => {
     setSelectedInterests(selected);
@@ -150,6 +200,10 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
     setMustSeesValue(mustSees);
     addUserMessage(mustSees);
     setInputValue("");
+    setStayOptions([]);
+    setStayBudgetVibe("");
+    setPlanTab("itinerary");
+    setHasPromptedStays(false);
     onPreferencesUpdate?.({ interests: selectedInterests, pace: selectedPace, mustSees });
 
     setTimeout(() => {
@@ -160,6 +214,101 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
       }, 1200);
     }, 300);
   };
+
+  const fetchStayRecommendations = useCallback(async (budgetVibe: string) => {
+    if (!generatedItinerary?.length) {
+      toast({
+        title: "Generate itinerary first",
+        description: "I need your itinerary before I can match accommodations.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setStayBudgetVibe(budgetVibe);
+    setIsFindingStays(true);
+    setMessages(prev => prev.filter(m => m.type !== "loading"));
+    setMessages(prev => [...prev, { id: `stay-loading-${Date.now()}`, sender: "bot", content: "", type: "loading" }]);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("recommend-stays", {
+        body: {
+          from: tripConfig.from,
+          to: tripConfig.to,
+          days: tripConfig.days,
+          startDate: tripConfig.startDate,
+          endDate: tripConfig.endDate,
+          budgetVibe,
+          tripBudget: tripConfig.budget,
+          itinerary: generatedItinerary,
+          preferences: {
+            interests: selectedInterests,
+            pace: selectedPace,
+            mustSees: mustSeesValue || "No specific must-sees",
+          },
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      const parsed = Array.isArray(data?.stays) ? data.stays as StayOption[] : [];
+      if (!parsed.length) {
+        throw new Error("No stays were returned. Try a different vibe.");
+      }
+
+      setStayOptions(parsed);
+      setPlanTab("stays");
+      setMessages(prev => prev.filter(m => m.type !== "loading"));
+      addBotMessage(`Found ${parsed.length} accommodations matched to your trip. Open the Stays tab above your itinerary.`, "text", 320);
+    } catch (err: unknown) {
+      console.error("Stay recommendations failed:", err);
+      setMessages(prev => prev.filter(m => m.type !== "loading"));
+      toast({
+        title: "Couldn't fetch stays",
+        description: getErrorMessage(err, "Please try again in a moment."),
+        variant: "destructive",
+      });
+      addBotMessage("I hit a snag finding accommodations. Want me to try again?", "text", 320);
+    } finally {
+      setIsFindingStays(false);
+    }
+  }, [
+    addBotMessage,
+    generatedItinerary,
+    getErrorMessage,
+    mustSeesValue,
+    selectedInterests,
+    selectedPace,
+    toast,
+    tripConfig.budget,
+    tripConfig.days,
+    tripConfig.endDate,
+    tripConfig.from,
+    tripConfig.startDate,
+    tripConfig.to,
+  ]);
+
+  const handleStayIntentChoice = useCallback((wantsStays: boolean) => {
+    if (wantsStays) {
+      addUserMessage("Yes, show me accommodation picks");
+      openStayBudgetPrompt();
+      return;
+    }
+
+    addUserMessage("Not now");
+    addBotMessage("No problem. Whenever you want, ask me to find accommodations.", "text", 350);
+  }, [addBotMessage, addUserMessage, openStayBudgetPrompt]);
+
+  const handleStayBudgetSelect = useCallback((vibe: string) => {
+    addUserMessage(vibe);
+    setTimeout(() => {
+      addBotMessage("Great pick. I’m finding places to stay near your route...", "text", 300);
+      setTimeout(() => {
+        fetchStayRecommendations(vibe);
+      }, 750);
+    }, 250);
+  }, [addBotMessage, addUserMessage, fetchStayRecommendations]);
 
   const generateItinerary = async (mustSees: string, adjustmentRequest?: string, currentItinerary?: DayPlan[]) => {
     try {
@@ -201,15 +350,20 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
         );
         setTimeout(() => {
           setMessages(prev => [...prev, { id: `actions-${Date.now()}`, sender: "bot", content: "", type: "actions" }]);
+          if (!adjustmentRequest) {
+            setTimeout(() => {
+              promptStayDiscovery();
+            }, 900);
+          }
         }, 1400);
       }, 500);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Itinerary generation failed:", err);
       setMessages(prev => prev.filter(m => m.id !== "loading"));
       addBotMessage("Sorry, I couldn't generate your itinerary. Please try again.", "text", 400);
       toast({
         title: "Generation failed",
-        description: err?.message || "Something went wrong. Please try again.",
+        description: getErrorMessage(err, "Something went wrong. Please try again."),
         variant: "destructive",
       });
     }
@@ -294,21 +448,21 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
       setAddDay(null);
       setAddForm({ name: "", time: "", location: "" });
       toast({ title: "Activity added", description: `Added to Day ${addDay}.` });
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: "Couldn’t add activity",
-        description: err?.message || "Try a more specific place or address.",
+        description: getErrorMessage(err, "Try a more specific place or address."),
         variant: "destructive",
       });
     } finally {
       setIsAddingStop(false);
     }
-  }, [addDay, addForm, toast, tripConfig.to, updateItinerary]);
+  }, [addDay, addForm, getErrorMessage, toast, tripConfig.to, updateItinerary]);
 
   return (
-    <div className="flex flex-col h-full bg-background">
-      <div className="px-4 py-3 border-b border-border flex items-center gap-3 shrink-0">
-        <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-body font-bold">R</div>
+    <div className="flex flex-col h-full bg-[radial-gradient(95%_80%_at_0%_0%,hsl(var(--accent)/0.10),transparent_45%),radial-gradient(90%_80%_at_100%_0%,hsl(var(--primary)/0.10),transparent_40%),hsl(var(--background))]">
+      <div className="px-4 py-3 border-b border-border/70 bg-card/75 backdrop-blur-md flex items-center gap-3 shrink-0">
+        <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-body font-bold shadow-sm">R</div>
         <div>
           <p className="font-body font-semibold text-sm text-foreground">Roamly</p>
           <p className="text-xs text-muted-foreground font-body">AI Trip Planner</p>
@@ -337,19 +491,19 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
                   className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
                 >
                   {msg.sender === "bot" && msg.type === "text" && (
-                    <div className="max-w-[85%] bg-secondary rounded-2xl rounded-tl-md px-4 py-3">
+                    <div className="max-w-[85%] rounded-2xl rounded-tl-md px-4 py-3 border border-border/60 bg-card/75 backdrop-blur-sm shadow-sm">
                       <p className="text-sm font-body text-foreground whitespace-pre-line">{msg.content}</p>
                     </div>
                   )}
                   {msg.sender === "user" && (
-                    <div className="max-w-[85%] bg-primary text-primary-foreground rounded-2xl rounded-tr-md px-4 py-3">
+                    <div className="max-w-[85%] bg-primary/95 text-primary-foreground rounded-2xl rounded-tr-md px-4 py-3 shadow-sm">
                       <p className="text-sm font-body">{msg.content}</p>
                     </div>
                   )}
                   {msg.type === "interests" && <InterestPicker onSelect={handleInterestSelect} />}
                   {msg.type === "pace" && <PacePicker onSelect={handlePaceSelect} />}
                   {msg.type === "input" && (
-                    <div className="w-full max-w-[85%]">
+                    <div className="w-full max-w-[88%] rounded-2xl border border-border/60 bg-card/70 backdrop-blur-sm p-3 shadow-sm">
                       <div className="flex gap-2">
                         <input
                           value={inputValue}
@@ -367,40 +521,80 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
                   )}
                   {msg.type === "loading" && <LoadingAnimation />}
                   {msg.type === "itinerary" && generatedItinerary && (
-                    <div className="w-full space-y-4">
-                      {generatedItinerary.map(day => (
-                        <div key={day.day} className="space-y-2">
-                          <DayCard
-                            day={day}
-                            onHighlightStop={onHighlightStop}
-                            highlightedStop={highlightedStop}
-                            onDayClick={onDayClick}
-                            onStopClick={onStopClick}
-                            onStopZoom={onStopZoom}
-                            onDeleteStop={handleDeleteStop}
-                            onAddStop={openAddStop}
-                          />
-                          {addDay === day.day && (
-                            <AddActivityForm
-                              dayNumber={day.day}
-                              value={addForm}
-                              onChange={setAddForm}
-                              onCancel={closeAddStop}
-                              onSubmit={handleAddStop}
-                              isSubmitting={isAddingStop}
-                            />
-                          )}
+                    <div className="w-full space-y-3">
+                      <div className="inline-flex rounded-xl border border-border/60 bg-card/70 backdrop-blur-sm p-1 shadow-sm">
+                        <button
+                          onClick={() => setPlanTab("itinerary")}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-body font-semibold transition-colors ${
+                            planTab === "itinerary"
+                              ? "bg-primary text-primary-foreground"
+                              : "text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          Itinerary
+                        </button>
+                        <button
+                          onClick={() => setPlanTab("stays")}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-body font-semibold transition-colors ${
+                            planTab === "stays"
+                              ? "bg-primary text-primary-foreground"
+                              : "text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          Stays {stayOptions.length > 0 ? `(${stayOptions.length})` : ""}
+                        </button>
+                      </div>
+
+                      {planTab === "itinerary" ? (
+                        <div className="space-y-4">
+                          {generatedItinerary.map(day => (
+                            <div key={day.day} className="space-y-2">
+                              <DayCard
+                                day={day}
+                                onHighlightStop={onHighlightStop}
+                                highlightedStop={highlightedStop}
+                                onDayClick={onDayClick}
+                                onStopClick={onStopClick}
+                                onStopZoom={onStopZoom}
+                                onDeleteStop={handleDeleteStop}
+                                onAddStop={openAddStop}
+                              />
+                              {addDay === day.day && (
+                                <AddActivityForm
+                                  dayNumber={day.day}
+                                  value={addForm}
+                                  onChange={setAddForm}
+                                  onCancel={closeAddStop}
+                                  onSubmit={handleAddStop}
+                                  isSubmitting={isAddingStop}
+                                />
+                              )}
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      ) : (
+                        <StayRecommendationsPanel
+                          options={stayOptions}
+                          budgetVibe={stayBudgetVibe}
+                          isLoading={isFindingStays}
+                          onRetry={() => openStayBudgetPrompt()}
+                          onSelect={(stay) => {
+                            onStopZoom?.(stay.lat, stay.lng);
+                            onStopClick?.(stay.name, stay.lat, stay.lng);
+                          }}
+                        />
+                      )}
                     </div>
                   )}
+                  {msg.type === "stay-intent" && <StayIntentPicker onSelect={handleStayIntentChoice} />}
+                  {msg.type === "stay-budget" && <StayBudgetPicker onSelect={handleStayBudgetSelect} />}
                   {msg.type === "actions" && <ActionChips onAction={handleActionChip} onSave={onSaveTrip} />}
                 </motion.div>
               ))}
             </AnimatePresence>
             {isTyping && (
               <div className="flex justify-start">
-                <div className="bg-secondary rounded-2xl rounded-tl-md">
+                <div className="rounded-2xl rounded-tl-md border border-border/60 bg-card/75 backdrop-blur-sm">
                   <TypingIndicator />
                 </div>
               </div>
@@ -440,12 +634,12 @@ function ChatStartHook({
       transition={{ duration: 0.5, ease: "easeOut" }}
       className="mx-auto mt-10 w-full max-w-[92%]"
     >
-      <div className="relative overflow-hidden rounded-3xl border border-border/70 bg-card p-5 shadow-sm">
+      <div className="relative overflow-hidden rounded-3xl border border-white/40 bg-white/45 backdrop-blur-xl p-5 shadow-[0_12px_38px_hsl(var(--foreground)/0.08)]">
         <div className="pointer-events-none absolute -top-12 right-0 h-36 w-36 rounded-full bg-accent/15 blur-2xl" />
         <div className="pointer-events-none absolute -bottom-14 -left-4 h-32 w-32 rounded-full bg-primary/10 blur-2xl" />
 
         <div className="relative space-y-4">
-          <div className="inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-1 text-[11px] font-body font-semibold uppercase tracking-wide text-muted-foreground">
+          <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-card/70 px-3 py-1 text-[11px] font-body font-semibold uppercase tracking-wide text-muted-foreground">
             <Sparkles className="h-3 w-3 text-accent" />
             Trip Copilot Ready
           </div>
@@ -459,7 +653,7 @@ function ChatStartHook({
             </p>
           </div>
 
-          <div className="space-y-2 rounded-2xl border border-border/60 bg-background/60 p-3">
+          <div className="space-y-2 rounded-2xl border border-border/60 bg-card/65 p-3 backdrop-blur-sm">
             {previewPrompts.map((prompt, idx) => (
               <motion.div
                 key={prompt}
@@ -510,7 +704,7 @@ function InterestPicker({ onSelect }: { onSelect: (s: string[]) => void }) {
   };
 
   return (
-    <div className="w-full max-w-[85%]">
+    <div className="w-full max-w-[88%] rounded-2xl border border-border/60 bg-card/70 backdrop-blur-sm p-3 shadow-sm">
       <div className="flex flex-wrap gap-2 mb-3">
         {options.map(opt => (
           <div key={opt.label} className="group relative">
@@ -519,7 +713,7 @@ function InterestPicker({ onSelect }: { onSelect: (s: string[]) => void }) {
               className={`px-3 py-1.5 rounded-full text-xs font-body font-medium transition-all pr-7 ${
                 selected.includes(opt.label)
                   ? "bg-accent text-accent-foreground shadow-sm"
-                  : "bg-secondary text-secondary-foreground hover:bg-secondary/70"
+                  : "bg-secondary/80 text-secondary-foreground hover:bg-secondary"
               }`}
             >
               {opt.emoji} {opt.label}
@@ -562,12 +756,12 @@ function InterestPicker({ onSelect }: { onSelect: (s: string[]) => void }) {
 
 function PacePicker({ onSelect }: { onSelect: (s: string) => void }) {
   return (
-    <div className="w-full max-w-[85%] flex flex-wrap gap-2">
+    <div className="w-full max-w-[88%] flex flex-wrap gap-2 rounded-2xl border border-border/60 bg-card/70 backdrop-blur-sm p-3 shadow-sm">
       {PACE_OPTIONS.map(opt => (
         <button
           key={opt.label}
           onClick={() => onSelect(opt.label)}
-          className="px-4 py-2.5 rounded-xl bg-secondary text-secondary-foreground hover:bg-accent hover:text-accent-foreground transition-all text-sm font-body"
+          className="px-4 py-2.5 rounded-xl bg-secondary/90 text-secondary-foreground hover:bg-accent hover:text-accent-foreground transition-all text-sm font-body"
         >
           {opt.emoji} <span className="font-semibold">{opt.label}</span>
           <span className="block text-xs opacity-70">{opt.description}</span>
@@ -579,7 +773,7 @@ function PacePicker({ onSelect }: { onSelect: (s: string) => void }) {
 
 function LoadingAnimation() {
   return (
-    <div className="w-full max-w-[85%] bg-secondary rounded-2xl rounded-tl-md p-6 flex flex-col items-center gap-3">
+    <div className="w-full max-w-[85%] border border-border/60 bg-card/75 backdrop-blur-sm rounded-2xl rounded-tl-md p-6 flex flex-col items-center gap-3 shadow-sm">
       <svg width="120" height="40" viewBox="0 0 120 40" className="text-accent">
         <path
           d="M10 30 Q30 10 50 25 T90 15 T110 20"
@@ -594,6 +788,126 @@ function LoadingAnimation() {
         <circle cx="110" cy="20" r="4" fill="hsl(var(--accent))" />
       </svg>
       <p className="text-sm font-body text-muted-foreground">Optimizing your route...</p>
+    </div>
+  );
+}
+
+function StayIntentPicker({ onSelect }: { onSelect: (wantsStays: boolean) => void }) {
+  return (
+    <div className="w-full max-w-[88%] rounded-2xl border border-border/60 bg-card/70 backdrop-blur-sm p-3 shadow-sm">
+      <p className="text-xs font-body text-muted-foreground mb-2">Add accommodation picks?</p>
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={() => onSelect(true)}
+          className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-body font-semibold hover:bg-primary/90 transition-colors"
+        >
+          Yes, find stays
+        </button>
+        <button
+          onClick={() => onSelect(false)}
+          className="px-4 py-2 rounded-xl bg-secondary text-secondary-foreground text-xs font-body font-semibold hover:bg-secondary/80 transition-colors"
+        >
+          Not now
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function StayBudgetPicker({ onSelect }: { onSelect: (vibe: string) => void }) {
+  return (
+    <div className="w-full max-w-[92%] rounded-2xl border border-border/60 bg-card/70 backdrop-blur-sm p-3 shadow-sm">
+      <p className="text-xs font-body text-muted-foreground mb-2">Pick a stay vibe</p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+        {STAY_BUDGET_VIBES.map((option) => (
+          <button
+            key={option.label}
+            onClick={() => onSelect(option.label)}
+            className="rounded-xl border border-border/60 bg-card hover:bg-secondary/80 transition-colors text-left p-3"
+          >
+            <p className="text-xs font-body font-semibold text-foreground">{option.label}</p>
+            <p className="text-[11px] font-body text-muted-foreground mt-1">{option.hint}</p>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function StayRecommendationsPanel({
+  options,
+  budgetVibe,
+  isLoading,
+  onRetry,
+  onSelect,
+}: {
+  options: StayOption[];
+  budgetVibe: string;
+  isLoading: boolean;
+  onRetry: () => void;
+  onSelect: (stay: StayOption) => void;
+}) {
+  if (isLoading) {
+    return (
+      <div className="rounded-2xl border border-border/60 bg-card/70 backdrop-blur-sm p-4">
+        <p className="text-sm font-body text-muted-foreground">Finding top stays near your itinerary...</p>
+      </div>
+    );
+  }
+
+  if (!options.length) {
+    return (
+      <div className="rounded-2xl border border-dashed border-border/70 bg-card/60 backdrop-blur-sm p-4">
+        <p className="text-sm font-body text-foreground">No accommodation picks yet.</p>
+        <p className="text-xs font-body text-muted-foreground mt-1">Ask Roamly to find stays and this tab will fill with recommendations.</p>
+        <Button onClick={onRetry} size="sm" className="mt-3 rounded-lg text-xs font-body bg-accent text-accent-foreground hover:bg-accent/90">
+          Find accommodations
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-2xl border border-border/60 bg-card/70 backdrop-blur-sm p-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <BedDouble className="w-4 h-4 text-accent" />
+          <p className="text-xs font-body font-semibold text-foreground">Stay recommendations</p>
+        </div>
+        {budgetVibe && <p className="text-[11px] font-body text-muted-foreground">{budgetVibe}</p>}
+      </div>
+      <div className="space-y-2">
+        {options.map((stay) => (
+          <button
+            key={stay.id}
+            onClick={() => onSelect(stay)}
+            className="w-full text-left rounded-2xl border border-border/60 bg-card/75 backdrop-blur-sm p-3 hover:border-accent/40 hover:shadow-sm transition-all"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-body font-semibold text-foreground">{stay.name}</p>
+                <div className="mt-1 flex flex-wrap gap-2 text-[11px] font-body text-muted-foreground">
+                  <span className="inline-flex items-center gap-1">
+                    <Building2 className="w-3 h-3" />
+                    {stay.type}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <MapPin className="w-3 h-3" />
+                    {stay.neighborhood}
+                  </span>
+                </div>
+              </div>
+              <span className="text-[11px] font-body font-semibold text-accent-foreground bg-accent/15 px-2 py-1 rounded-full">
+                {stay.nightlyPrice}
+              </span>
+            </div>
+            <p className="mt-2 text-xs font-body text-muted-foreground">{stay.why}</p>
+            <p className="mt-2 text-[11px] font-body text-foreground/80">
+              Best for: <span className="font-semibold">{stay.bestFor}</span>
+            </p>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -681,7 +995,7 @@ function ActionChips({ onAction, onSave }: { onAction: (action: string) => void;
   };
 
   return (
-    <div className="w-full max-w-[85%] space-y-2">
+    <div className="w-full max-w-[88%] space-y-2 rounded-2xl border border-border/60 bg-card/70 backdrop-blur-sm p-3 shadow-sm">
       <div className="flex flex-wrap gap-2">
         {["Add more stops", "Make it more relaxed", "Swap Day 1 and 2", "Find restaurants near stops"].map(action => (
           <button
