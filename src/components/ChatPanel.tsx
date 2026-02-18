@@ -14,7 +14,7 @@ interface ChatMessage {
   id: string;
   sender: "bot" | "user";
   content: string;
-  type: "text" | "interests" | "pace" | "input" | "loading" | "itinerary" | "actions" | "stay-intent" | "stay-budget";
+  type: "text" | "interests" | "pace" | "loading" | "itinerary" | "actions" | "stay-intent" | "stay-budget";
 }
 
 interface StayOption {
@@ -289,7 +289,6 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
   const [phase, setPhase] = useState(0);
   const [chatInitiated, setChatInitiated] = useState(Boolean(initialItinerary));
   const [isTyping, setIsTyping] = useState(false);
-  const [inputValue, setInputValue] = useState("");
   const [generatedItinerary, setGeneratedItinerary] = useState<DayPlan[] | null>(null);
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [selectedPace, setSelectedPace] = useState("");
@@ -465,30 +464,20 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
   const handlePaceSelect = (pace: string) => {
     setSelectedPace(pace);
     addUserMessage(pace);
-    setTimeout(() => {
-      addBotMessage("One more — any must-see spots you already have in mind? Drop them here and I'll build around them.", "text", 600);
-      setTimeout(() => {
-        setMessages(prev => [...prev, { id: "spots-input", sender: "bot", content: "", type: "input" }]);
-        setPhase(2);
-      }, 1500);
-    }, 300);
-  };
-
-  const handleSpotsSubmit = async () => {
-    const mustSees = inputValue.trim() || "No specific spots — surprise me!";
+    const mustSees = "No specific spots — surprise me!";
     setMustSeesValue(mustSees);
-    addUserMessage(mustSees);
-    setInputValue("");
     setStayOptions([]);
     setSelectedStays([]);
     setStayBudgetVibe("");
     setPlanTab("itinerary");
     setHasPromptedStays(false);
-    onPreferencesUpdate?.({ interests: selectedInterests, pace: selectedPace, mustSees });
-
-    addBotMessageImmediate("Perfect. Give me a moment to build something great... 🗺️");
-    setMessages(prev => [...prev, { id: `loading-${Date.now()}`, sender: "bot", content: "", type: "loading" }]);
-    void generateItinerary(mustSees);
+    onPreferencesUpdate?.({ interests: selectedInterests, pace, mustSees });
+    setTimeout(() => {
+      setPhase(2);
+      addBotMessageImmediate("Perfect. Give me a moment to build something great... 🗺️");
+      setMessages(prev => [...prev, { id: `loading-${Date.now()}`, sender: "bot", content: "", type: "loading" }]);
+      void generateItinerary(mustSees);
+    }, 300);
   };
 
   const fetchStayRecommendations = useCallback(async (budgetVibe: string) => {
@@ -1008,23 +997,6 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
                   )}
                   {msg.type === "interests" && <InterestPicker onSelect={handleInterestSelect} />}
                   {msg.type === "pace" && <PacePicker onSelect={handlePaceSelect} />}
-                  {msg.type === "input" && (
-                    <div className="w-full max-w-[88%] rounded-2xl border border-border/60 bg-card/70 backdrop-blur-sm p-3 shadow-sm">
-                      <div className="flex gap-2">
-                        <input
-                          value={inputValue}
-                          onChange={e => setInputValue(e.target.value)}
-                          onKeyDown={e => e.key === "Enter" && handleSpotsSubmit()}
-                          placeholder="e.g., Golden Gate Bridge, Yosemite..."
-                          className="flex-1 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-body focus:outline-none focus:ring-2 focus:ring-ring"
-                        />
-                        <Button onClick={handleSpotsSubmit} size="icon" className="rounded-xl bg-accent text-accent-foreground hover:bg-accent/90 shrink-0">
-                          <Send className="w-4 h-4" />
-                        </Button>
-                      </div>
-                      <button onClick={handleSpotsSubmit} className="text-xs text-muted-foreground font-body mt-2 hover:underline">Skip — surprise me!</button>
-                    </div>
-                  )}
                   {msg.type === "loading" && <LoadingAnimation />}
                   {msg.type === "itinerary" && generatedItinerary && (
                     <div ref={planSectionRef} className="w-full space-y-3">
