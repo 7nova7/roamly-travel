@@ -63,6 +63,10 @@ export function DestinationCarousel() {
   const pauseAutoUntilRef = useRef(0);
   const carryRef = useRef({ row1: 0, row2: 0 });
 
+  const pauseAuto = (ms = 2200) => {
+    pauseAutoUntilRef.current = Date.now() + ms;
+  };
+
   const handleClick = (dest: Destination) => {
     navigate("/plan", {
       state: {
@@ -79,7 +83,7 @@ export function DestinationCarousel() {
     const container = event.currentTarget;
     if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
     container.scrollLeft += event.deltaY;
-    pauseAutoUntilRef.current = Date.now() + 2200;
+    pauseAuto();
     event.preventDefault();
   };
 
@@ -97,10 +101,10 @@ export function DestinationCarousel() {
     const step = (ts: number) => {
       const delta = ts - lastTs;
       lastTs = ts;
-      const isDesktop = window.matchMedia("(min-width: 640px)").matches;
+      const isMobileViewport = window.matchMedia("(max-width: 639px)").matches;
       const paused = Date.now() < pauseAutoUntilRef.current;
 
-      if (isDesktop && !paused) {
+      if (!paused) {
         const advanceRow = (
           element: HTMLDivElement | null,
           speedPxPerSecond: number,
@@ -125,8 +129,10 @@ export function DestinationCarousel() {
           element.scrollLeft = next <= 0 ? next + half : next;
         };
 
-        advanceRow(row1Ref.current, 34, 1, "row1");
-        advanceRow(row2Ref.current, 30, -1, "row2");
+        const row1Speed = isMobileViewport ? 18 : 34;
+        const row2Speed = isMobileViewport ? 16 : 30;
+        advanceRow(row1Ref.current, row1Speed, 1, "row1");
+        advanceRow(row2Ref.current, row2Speed, -1, "row2");
       }
 
       rafId = window.requestAnimationFrame(step);
@@ -149,6 +155,8 @@ export function DestinationCarousel() {
       <div
         ref={row1Ref}
         onWheel={handleHorizontalWheel}
+        onTouchStart={() => pauseAuto(3200)}
+        onTouchMove={() => pauseAuto(3200)}
         className="mb-4 overflow-x-auto px-4 sm:px-0 snap-x snap-mandatory sm:snap-none [&::-webkit-scrollbar]:hidden"
         style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
@@ -163,6 +171,8 @@ export function DestinationCarousel() {
       <div
         ref={row2Ref}
         onWheel={handleHorizontalWheel}
+        onTouchStart={() => pauseAuto(3200)}
+        onTouchMove={() => pauseAuto(3200)}
         className="overflow-x-auto px-4 sm:px-0 snap-x snap-mandatory sm:snap-none [&::-webkit-scrollbar]:hidden"
         style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
