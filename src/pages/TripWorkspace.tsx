@@ -143,14 +143,14 @@ export default function TripWorkspace() {
               />
             </div>
             <div className="flex-1 relative">
-              <TripMap itinerary={itinerary} highlightedStop={highlightedStop} onHighlightStop={setHighlightedStop} focusedDay={focusedDay} onResetFocus={() => setFocusedDay(null)} onFocusDay={handleDayFocus} onStopClick={handleStopClick} zoomTarget={zoomTarget} onZoomComplete={() => setZoomTarget(null)} previewPin={previewPin} />
+              <TripMap itinerary={itinerary} highlightedStop={highlightedStop} onHighlightStop={setHighlightedStop} focusedDay={focusedDay} onResetFocus={() => setFocusedDay(null)} onFocusDay={handleDayFocus} onStopClick={handleStopClick} zoomTarget={zoomTarget} onZoomComplete={() => setZoomTarget(null)} previewPin={previewPin} destination={tripConfig.to} startDate={tripConfig.startDate} endDate={tripConfig.endDate} />
               <DestinationPanel stop={selectedStop} onClose={() => setSelectedStop(null)} />
             </div>
           </>
         ) : (
           <>
             <div className={`flex-1 relative ${showMap ? '' : 'hidden'}`}>
-              <TripMap itinerary={itinerary} highlightedStop={highlightedStop} onHighlightStop={setHighlightedStop} focusedDay={focusedDay} onResetFocus={() => setFocusedDay(null)} onFocusDay={handleDayFocus} onStopClick={handleStopClick} visible={showMap} zoomTarget={zoomTarget} onZoomComplete={() => setZoomTarget(null)} previewPin={previewPin} />
+              <TripMap itinerary={itinerary} highlightedStop={highlightedStop} onHighlightStop={setHighlightedStop} focusedDay={focusedDay} onResetFocus={() => setFocusedDay(null)} onFocusDay={handleDayFocus} onStopClick={handleStopClick} visible={showMap} zoomTarget={zoomTarget} onZoomComplete={() => setZoomTarget(null)} previewPin={previewPin} destination={tripConfig.to} startDate={tripConfig.startDate} endDate={tripConfig.endDate} />
               <DestinationPanel stop={selectedStop} onClose={() => setSelectedStop(null)} />
             </div>
             <div className={`flex-1 overflow-hidden ${showMap ? 'hidden' : ''}`}>
