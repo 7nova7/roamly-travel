@@ -1,11 +1,12 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Map, MessageSquare, Plus, Save, Loader2 } from "lucide-react";
+import { Map, MessageSquare, Plus, Save, Loader2, LayoutGrid } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { RoamlyLogo } from "@/components/RoamlyLogo";
 import { ChatPanel } from "@/components/ChatPanel";
 import { TripMap } from "@/components/TripMap";
+import { ItineraryGridPanel } from "@/components/ItineraryGridPanel";
 import { DestinationPanel } from "@/components/DestinationPanel";
 import { ExportTripMenu } from "@/components/ExportTripMenu";
 import { UserMenu } from "@/components/UserMenu";
@@ -37,6 +38,7 @@ export default function TripWorkspace() {
   const { saveTrip, isSaving } = useSaveTrip();
   const [highlightedStop, setHighlightedStop] = useState<string | null>(null);
   const [showMap, setShowMap] = useState(false);
+  const [mapViewMode, setMapViewMode] = useState<"map" | "grid">("map");
   const [focusedDay, setFocusedDay] = useState<number | null>(null);
   const [selectedStop, setSelectedStop] = useState<{ name: string; lat: number; lng: number } | null>(null);
   const [zoomTarget, setZoomTarget] = useState<{ lat: number; lng: number } | null>(null);
@@ -60,6 +62,13 @@ export default function TripWorkspace() {
     shared?.preferences ?? state.savedPreferences
   );
 
+  useEffect(() => {
+    if (!itinerary) {
+      setMapViewMode("map");
+      setFocusedDay(null);
+    }
+  }, [itinerary]);
+
   const handleStopClick = (name: string, lat: number, lng: number) => {
     setSelectedStop({ name, lat, lng });
   };
@@ -74,6 +83,12 @@ export default function TripWorkspace() {
 
   const handleDayFocus = (dayNumber: number) => {
     setFocusedDay((prev) => (prev === dayNumber ? null : dayNumber));
+  };
+
+  const handleOpenDayOnMap = (dayNumber: number) => {
+    setMapViewMode("map");
+    setFocusedDay(dayNumber);
+    if (isMobile) setShowMap(true);
   };
 
   const handleSave = async () => {
@@ -145,15 +160,85 @@ export default function TripWorkspace() {
               />
             </div>
             <div className="flex-1 relative">
-              <TripMap itinerary={itinerary} highlightedStop={highlightedStop} onHighlightStop={setHighlightedStop} focusedDay={focusedDay} onResetFocus={() => setFocusedDay(null)} onFocusDay={handleDayFocus} onStopClick={handleStopClick} zoomTarget={zoomTarget} onZoomComplete={() => setZoomTarget(null)} previewPin={previewPin} destination={tripConfig.to} startDate={tripConfig.startDate} endDate={tripConfig.endDate} />
-              <DestinationPanel stop={selectedStop} onClose={() => setSelectedStop(null)} />
+              {itinerary && (
+                <div className="absolute top-3 left-3 z-30 inline-flex rounded-xl border border-border/60 bg-card/90 p-1 backdrop-blur-sm shadow-sm">
+                  <button
+                    type="button"
+                    onClick={() => setMapViewMode("map")}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-body font-semibold transition-colors ${
+                      mapViewMode === "map"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <Map className="w-3.5 h-3.5" />
+                    Map
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMapViewMode("grid")}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-body font-semibold transition-colors ${
+                      mapViewMode === "grid"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <LayoutGrid className="w-3.5 h-3.5" />
+                    Grid
+                  </button>
+                </div>
+              )}
+
+              {mapViewMode === "grid" && itinerary ? (
+                <ItineraryGridPanel itinerary={itinerary} destination={tripConfig.to} onOpenDayOnMap={handleOpenDayOnMap} />
+              ) : (
+                <>
+                  <TripMap itinerary={itinerary} highlightedStop={highlightedStop} onHighlightStop={setHighlightedStop} focusedDay={focusedDay} onResetFocus={() => setFocusedDay(null)} onFocusDay={handleDayFocus} onStopClick={handleStopClick} zoomTarget={zoomTarget} onZoomComplete={() => setZoomTarget(null)} previewPin={previewPin} destination={tripConfig.to} startDate={tripConfig.startDate} endDate={tripConfig.endDate} />
+                  <DestinationPanel stop={selectedStop} onClose={() => setSelectedStop(null)} />
+                </>
+              )}
             </div>
           </>
         ) : (
           <>
             <div className={`flex-1 relative ${showMap ? '' : 'hidden'}`}>
-              <TripMap itinerary={itinerary} highlightedStop={highlightedStop} onHighlightStop={setHighlightedStop} focusedDay={focusedDay} onResetFocus={() => setFocusedDay(null)} onFocusDay={handleDayFocus} onStopClick={handleStopClick} visible={showMap} zoomTarget={zoomTarget} onZoomComplete={() => setZoomTarget(null)} previewPin={previewPin} destination={tripConfig.to} startDate={tripConfig.startDate} endDate={tripConfig.endDate} />
-              <DestinationPanel stop={selectedStop} onClose={() => setSelectedStop(null)} />
+              {itinerary && (
+                <div className="absolute top-3 left-3 z-30 inline-flex rounded-xl border border-border/60 bg-card/90 p-1 backdrop-blur-sm shadow-sm">
+                  <button
+                    type="button"
+                    onClick={() => setMapViewMode("map")}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-body font-semibold transition-colors ${
+                      mapViewMode === "map"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <Map className="w-3.5 h-3.5" />
+                    Map
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMapViewMode("grid")}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-body font-semibold transition-colors ${
+                      mapViewMode === "grid"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <LayoutGrid className="w-3.5 h-3.5" />
+                    Grid
+                  </button>
+                </div>
+              )}
+
+              {mapViewMode === "grid" && itinerary ? (
+                <ItineraryGridPanel itinerary={itinerary} destination={tripConfig.to} onOpenDayOnMap={handleOpenDayOnMap} />
+              ) : (
+                <>
+                  <TripMap itinerary={itinerary} highlightedStop={highlightedStop} onHighlightStop={setHighlightedStop} focusedDay={focusedDay} onResetFocus={() => setFocusedDay(null)} onFocusDay={handleDayFocus} onStopClick={handleStopClick} visible={showMap} zoomTarget={zoomTarget} onZoomComplete={() => setZoomTarget(null)} previewPin={previewPin} destination={tripConfig.to} startDate={tripConfig.startDate} endDate={tripConfig.endDate} />
+                  <DestinationPanel stop={selectedStop} onClose={() => setSelectedStop(null)} />
+                </>
+              )}
             </div>
             <div className={`flex-1 overflow-hidden ${showMap ? 'hidden' : ''}`}>
               <ChatPanel

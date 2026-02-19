@@ -1584,11 +1584,6 @@ function InterestPicker({ onSelect }: { onSelect: (s: string[]) => void }) {
 
   const toggle = (label: string) => setSelected(prev => prev.includes(label) ? prev.filter(s => s !== label) : [...prev, label]);
 
-  const removeOption = (label: string) => {
-    setOptions(prev => prev.filter(o => o.label !== label));
-    setSelected(prev => prev.filter(s => s !== label));
-  };
-
   const addCustomActivity = () => {
     const trimmed = newActivity.trim();
     if (!trimmed || trimmed.length > 40) return;
@@ -1603,25 +1598,17 @@ function InterestPicker({ onSelect }: { onSelect: (s: string[]) => void }) {
     <div className="w-full max-w-[88%] rounded-2xl border border-border/60 bg-card/70 backdrop-blur-sm p-3 shadow-sm">
       <div className="flex flex-wrap gap-2 mb-3">
         {options.map(opt => (
-          <div key={opt.label} className="group relative">
-            <button
-              onClick={() => toggle(opt.label)}
-              className={`px-3 py-1.5 rounded-full text-xs font-body font-medium transition-all pr-7 ${
-                selected.includes(opt.label)
-                  ? "bg-accent text-accent-foreground shadow-sm"
-                  : "bg-secondary/80 text-secondary-foreground hover:bg-secondary"
-              }`}
-            >
-              {opt.emoji} {opt.label}
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); removeOption(opt.label); }}
-              className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-              title="Remove"
-            >
-              <X className="w-2.5 h-2.5" />
-            </button>
-          </div>
+          <button
+            key={opt.label}
+            onClick={() => toggle(opt.label)}
+            className={`px-3 py-1.5 rounded-full text-xs font-body font-medium transition-all ${
+              selected.includes(opt.label)
+                ? "bg-accent text-accent-foreground shadow-sm"
+                : "bg-secondary/80 text-secondary-foreground hover:bg-secondary"
+            }`}
+          >
+            {opt.emoji} {opt.label}
+          </button>
         ))}
       </div>
       <div className="flex gap-2 mb-3">
