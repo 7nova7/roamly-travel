@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState, type DragEvent } from "react";
 import { Reorder, motion } from "framer-motion";
-import { Clock, Car, DollarSign, X, MapPin, Plus, GripVertical } from "lucide-react";
+import { Clock, Car, DollarSign, X, MapPin, Plus, GripVertical, Trash2 } from "lucide-react";
 import type { DayPlan, Stop } from "@/data/demoTrip";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { ActivityImage } from "@/components/ActivityImage";
 
 const DRAG_MIME_TYPE = "application/x-roamly-stop";
 
 interface DayCardProps {
   day: DayPlan;
+  destination?: string;
   onHighlightStop: (stopId: string | null) => void;
   highlightedStop: string | null;
   onDayClick?: (dayNumber: number) => void;
@@ -15,6 +17,8 @@ interface DayCardProps {
   onStopClick?: (name: string, lat: number, lng: number) => void;
   onStopZoom?: (lat: number, lng: number) => void;
   onDeleteStop?: (dayNumber: number, stopId: string) => void;
+  onDeleteDay?: (dayNumber: number) => void;
+  canDeleteDay?: boolean;
   onAddStop?: (dayNumber: number) => void;
   onMoveStop?: (move: { sourceDay: number; stopId: string; targetDay: number; targetStopId?: string }) => void;
   onReorderStops?: (dayNumber: number, orderedStopIds: string[]) => void;
@@ -22,6 +26,7 @@ interface DayCardProps {
 
 export function DayCard({
   day,
+  destination,
   onHighlightStop,
   highlightedStop,
   onDayClick,
@@ -29,6 +34,8 @@ export function DayCard({
   onStopClick,
   onStopZoom,
   onDeleteStop,
+  onDeleteDay,
+  canDeleteDay = false,
   onAddStop,
   onMoveStop,
   onReorderStops,
@@ -143,27 +150,43 @@ export function DayCard({
           {index < totalStops - 1 && <div className="w-px flex-1 bg-border mt-1" />}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-baseline gap-2 mb-0.5">
-            <span className="text-xs text-muted-foreground font-body font-medium">{stop.time}</span>
-          </div>
-          <h4
-            className="font-body font-semibold text-sm text-foreground hover:text-accent cursor-pointer transition-colors"
-            onClick={(e) => {
-              e.stopPropagation();
-              onStopClick?.(stop.name, stop.lat, stop.lng);
-            }}
-          >
-            {stop.name}
-          </h4>
-          <p className="text-xs text-muted-foreground font-body mt-0.5 leading-relaxed">{stop.description}</p>
-          <div className="flex flex-wrap gap-1.5 mt-2">
-            <span className="text-[10px] font-body px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{stop.hours}</span>
-            <span className="text-[10px] font-body px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{stop.cost}</span>
-            {stop.tags.map((tag) => (
-              <span key={tag} className="text-[10px] font-body px-2 py-0.5 rounded-full bg-accent/10 text-accent-foreground">
-                {tag}
-              </span>
-            ))}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <ActivityImage
+              activity={stop.name}
+              destination={destination}
+              imageUrl={stop.imageUrl}
+              lat={stop.lat}
+              lng={stop.lng}
+              tags={stop.tags}
+              description={stop.description}
+              alt={stop.name}
+              className="order-1 sm:order-2 w-full sm:w-24 h-28 sm:h-20 rounded-lg border border-border/40 shrink-0"
+            />
+
+            <div className="order-2 sm:order-1 flex-1 min-w-0">
+              <div className="flex items-baseline gap-2 mb-0.5">
+                <span className="text-xs text-muted-foreground font-body font-medium">{stop.time}</span>
+              </div>
+              <h4
+                className="font-body font-semibold text-sm text-foreground hover:text-accent cursor-pointer transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStopClick?.(stop.name, stop.lat, stop.lng);
+                }}
+              >
+                {stop.name}
+              </h4>
+              <p className="text-xs text-muted-foreground font-body mt-0.5 leading-relaxed">{stop.description}</p>
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                <span className="text-[10px] font-body px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{stop.hours}</span>
+                <span className="text-[10px] font-body px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{stop.cost}</span>
+                {stop.tags.map((tag) => (
+                  <span key={tag} className="text-[10px] font-body px-2 py-0.5 rounded-full bg-accent/10 text-accent-foreground">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
         <div className={`flex gap-1 shrink-0 transition-opacity ${isMobileSortable ? "opacity-100" : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100"}`}>
@@ -205,7 +228,22 @@ export function DayCard({
           <h3 className="font-body font-semibold text-sm text-foreground">Day {day.day} — {day.title}</h3>
           <p className="text-xs text-muted-foreground font-body">{day.subtitle}</p>
         </div>
-        <MapPin className={`w-3.5 h-3.5 shrink-0 ${isMapFocused ? "text-accent" : "text-muted-foreground"}`} />
+        <div className="flex items-center gap-1.5 shrink-0">
+          <MapPin className={`w-3.5 h-3.5 ${isMapFocused ? "text-accent" : "text-muted-foreground"}`} />
+          {onDeleteDay && canDeleteDay && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeleteDay(day.day);
+              }}
+              className="p-1 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+              aria-label={`Delete Day ${day.day}`}
+              title={`Delete Day ${day.day}`}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Stops timeline */}

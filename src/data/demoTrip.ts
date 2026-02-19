@@ -8,6 +8,7 @@ export interface Stop {
   driveFromPrev?: string;
   lat: number;
   lng: number;
+  imageUrl?: string;
   tags: string[];
 }
 

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Send, X, Plus, Loader2, ArrowRight, Compass, Sparkles, BedDouble, MapPin, Building2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { Button } from "@/components/ui/button";
+import { ToastAction } from "@/components/ui/toast";
 import { TypingIndicator } from "@/components/TypingIndicator";
 import { INTEREST_OPTIONS, PACE_OPTIONS, type DayPlan, type TripConfig } from "@/data/demoTrip";
 import { DayCard } from "./DayCard";
@@ -174,6 +175,7 @@ const CHAT_ACTION_KEYWORDS = [
 
 const DEFAULT_DAY_START_MINUTES = 9 * 60 + 30; // 9:30 AM
 const DEFAULT_STOP_GAP_MINUTES = 150; // 2.5h
+const DAY_COLORS = ["#1B4332", "#2563EB", "#F4A261", "#D6336C", "#6D28D9", "#0D9488", "#EAB308"];
 
 function parseClockTimeToMinutes(value: string): number | null {
   const match = value.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
@@ -227,6 +229,14 @@ function resequenceStopTimes(stops: DayPlan["stops"]): DayPlan["stops"] {
   return stops.map((stop, index) => ({
     ...stop,
     time: formatMinutesAsClock(start + index * gap),
+  }));
+}
+
+function resequenceDayPlans(days: DayPlan[]): DayPlan[] {
+  return days.map((day, idx) => ({
+    ...day,
+    day: idx + 1,
+    color: DAY_COLORS[idx % DAY_COLORS.length],
   }));
 }
 
@@ -724,16 +734,166 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
   };
 
   const handleDeleteStop = useCallback((dayNumber: number, stopId: string) => {
-    updateItinerary(prev => prev.map(day => (
-      day.day === dayNumber
-        ? { ...day, stops: day.stops.filter(stop => stop.id !== stopId) }
-        : day
-    )));
+    let removedStop: DayPlan["stops"][number] | null = null;
+    let removedIndex = -1;
+    let changed = false;
+
+    updateItinerary((prev) => prev.map((day) => {
+      if (day.day !== dayNumber) return day;
+
+      const idx = day.stops.findIndex((stop) => stop.id === stopId);
+      if (idx < 0) return day;
+
+      removedStop = day.stops[idx];
+      removedIndex = idx;
+      changed = true;
+
+      return {
+        ...day,
+        stops: day.stops.filter((stop) => stop.id !== stopId),
+      };
+    }));
+
+    if (!changed || !removedStop) return;
+
+    const deletedStop = removedStop;
+    const restoreIndex = removedIndex;
+    let undone = false;
+
     toast({
       title: "Activity removed",
       description: `Removed from Day ${dayNumber}.`,
+      duration: 5000,
+      action: (
+        <ToastAction
+          altText="Undo remove activity"
+          onClick={() => {
+            if (undone) return;
+            undone = true;
+            updateItinerary((prev) => prev.map((day) => {
+              if (day.day !== dayNumber) return day;
+              if (day.stops.some((stop) => stop.id === deletedStop.id)) return day;
+
+              const nextStops = [...day.stops];
+              const safeIndex = Math.max(0, Math.min(restoreIndex, nextStops.length));
+              nextStops.splice(safeIndex, 0, deletedStop);
+
+              return {
+                ...day,
+                stops: resequenceStopTimes(nextStops),
+              };
+            }));
+            toast({
+              title: "Activity restored",
+              description: `Added back to Day ${dayNumber}.`,
+              duration: 2500,
+            });
+          }}
+        >
+          Undo
+        </ToastAction>
+      ),
     });
   }, [toast, updateItinerary]);
+
+  const handleAddDay = useCallback(() => {
+    updateItinerary((prev) => {
+      const nextDayNumber = prev.length + 1;
+      const next = [
+        ...prev,
+        {
+          day: nextDayNumber,
+          title: `Custom Day ${nextDayNumber}`,
+          subtitle: "Build this day your way.",
+          totalDriving: "0m",
+          stops: [],
+          estimatedCost: "$0",
+          color: DAY_COLORS[(nextDayNumber - 1) % DAY_COLORS.length],
+        },
+      ];
+      return resequenceDayPlans(next);
+    });
+    setAddDay(null);
+    onResetDayFocus?.();
+    toast({
+      title: "Day added",
+      description: "A new day was added to your itinerary.",
+    });
+  }, [onResetDayFocus, toast, updateItinerary]);
+
+  const handleDeleteDay = useCallback((dayNumber: number) => {
+    let removed = false;
+    let blocked = false;
+    let removedDay: DayPlan | null = null;
+    let removedIndex = -1;
+
+    updateItinerary((prev) => {
+      if (prev.length <= 1) {
+        blocked = true;
+        return prev;
+      }
+
+      removedIndex = prev.findIndex((day) => day.day === dayNumber);
+      if (removedIndex < 0) return prev;
+
+      removedDay = prev[removedIndex];
+      const filtered = prev.filter((day) => day.day !== dayNumber);
+      removed = true;
+      return resequenceDayPlans(filtered);
+    });
+
+    if (blocked) {
+      toast({
+        title: "Can't delete day",
+        description: "Your itinerary needs at least one day.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!removed) return;
+
+    const deletedDay = removedDay;
+    const deletedDayIndex = removedIndex;
+    if (!deletedDay || deletedDayIndex < 0) return;
+
+    setAddDay((current) => {
+      if (current === null) return null;
+      if (current === dayNumber) return null;
+      if (current > dayNumber) return current - 1;
+      return current;
+    });
+    onResetDayFocus?.();
+    let undone = false;
+    toast({
+      title: "Day removed",
+      description: `Day ${dayNumber} was removed.`,
+      duration: 5000,
+      action: (
+        <ToastAction
+          altText="Undo remove day"
+          onClick={() => {
+            if (undone) return;
+            undone = true;
+            updateItinerary((prev) => {
+              const next = [...prev];
+              const safeIndex = Math.max(0, Math.min(deletedDayIndex, next.length));
+              next.splice(safeIndex, 0, deletedDay);
+              return resequenceDayPlans(next);
+            });
+            onResetDayFocus?.();
+            toast({
+              title: "Day restored",
+              description: "Your day was added back.",
+              duration: 2500,
+            });
+          }}
+        >
+          Undo
+        </ToastAction>
+      ),
+    });
+  }, [onResetDayFocus, toast, updateItinerary]);
 
   const handleMoveStop = useCallback((move: { sourceDay: number; stopId: string; targetDay: number; targetStopId?: string }) => {
     const { sourceDay, stopId, targetDay, targetStopId } = move;
@@ -1042,6 +1202,7 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
                             <div key={day.day} className="space-y-2">
                               <DayCard
                                 day={day}
+                                destination={tripConfig.to}
                                 onHighlightStop={onHighlightStop}
                                 highlightedStop={highlightedStop}
                                 onDayClick={onDayClick}
@@ -1049,6 +1210,8 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
                                 onStopClick={onStopClick}
                                 onStopZoom={onStopZoom}
                                 onDeleteStop={handleDeleteStop}
+                                onDeleteDay={handleDeleteDay}
+                                canDeleteDay={generatedItinerary.length > 1}
                                 onAddStop={openAddStop}
                                 onMoveStop={handleMoveStop}
                                 onReorderStops={handleReorderStops}
@@ -1066,6 +1229,12 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
                               )}
                             </div>
                           ))}
+                          <button
+                            onClick={handleAddDay}
+                            className="w-full flex items-center justify-center gap-2 text-xs font-body font-semibold px-3 py-2.5 rounded-xl border border-dashed border-border text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
+                          >
+                            <Plus className="w-3.5 h-3.5" /> Add day
+                          </button>
                         </div>
                       ) : (
                         <StayRecommendationsPanel
