@@ -816,6 +816,9 @@ export function TripMap({
 
   const activeSlide = insightSlides[Math.max(0, Math.min(slideIndex, insightSlides.length - 1))];
   const hasMultipleSlides = insightSlides.length > 1;
+  const slideBodyCopy = isMobile && activeSlide?.body.length > 118
+    ? `${activeSlide.body.slice(0, 115).trimEnd()}...`
+    : activeSlide?.body;
   const goToPreviousSlide = () => {
     if (!hasMultipleSlides) return;
     setSlideIndex((prev) => (prev - 1 + insightSlides.length) % insightSlides.length);
@@ -864,12 +867,22 @@ export function TripMap({
         </div>
       )}
       {showInsightOverlay && activeSlide && (
-        <div className="absolute inset-x-4 bottom-4 md:left-6 md:right-auto md:bottom-6 md:w-[64vw] md:max-w-[760px] lg:w-[58vw] lg:max-w-[820px] z-20 pointer-events-none">
+        <div
+          className={
+            isMobile
+              ? "absolute top-3 left-3 right-[4.25rem] z-20 pointer-events-none"
+              : "absolute inset-x-4 bottom-4 md:left-6 md:right-auto md:bottom-6 md:w-[64vw] md:max-w-[760px] lg:w-[58vw] lg:max-w-[820px] z-20 pointer-events-none"
+          }
+        >
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45, ease: "easeOut" }}
-            className="relative overflow-hidden rounded-3xl border border-white/30 bg-card/75 backdrop-blur-xl shadow-[0_24px_65px_rgba(0,0,0,0.30)] pointer-events-auto"
+            className={
+              isMobile
+                ? "relative overflow-hidden rounded-2xl border border-white/35 bg-card/78 backdrop-blur-xl shadow-[0_16px_38px_rgba(0,0,0,0.28)] pointer-events-auto"
+                : "relative overflow-hidden rounded-3xl border border-white/30 bg-card/75 backdrop-blur-xl shadow-[0_24px_65px_rgba(0,0,0,0.30)] pointer-events-auto"
+            }
           >
             <motion.div
               aria-hidden
@@ -878,15 +891,15 @@ export function TripMap({
               transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
             />
 
-            <div className="relative p-5 md:p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="inline-flex items-center gap-2 rounded-full bg-white/70 px-3 py-1.5 border border-white/45">
-                  <Sparkles className="w-4 h-4 text-accent" />
-                  <span className="text-xs font-body font-semibold text-foreground/90">
+            <div className={isMobile ? "relative p-3.5" : "relative p-5 md:p-6"}>
+              <div className={isMobile ? "flex items-center justify-between mb-2.5" : "flex items-center justify-between mb-4"}>
+                <div className={isMobile ? "inline-flex items-center gap-1.5 rounded-full bg-white/72 px-2.5 py-1 border border-white/45" : "inline-flex items-center gap-2 rounded-full bg-white/70 px-3 py-1.5 border border-white/45"}>
+                  <Sparkles className={isMobile ? "w-3.5 h-3.5 text-accent" : "w-4 h-4 text-accent"} />
+                  <span className={isMobile ? "text-[11px] font-body font-semibold text-foreground/90" : "text-xs font-body font-semibold text-foreground/90"}>
                     City Intel: {cityInsights?.cityLabel || normalizeDestinationLabel(destination) || "Destination"}
                   </span>
                 </div>
-                <span className="text-[11px] font-body text-muted-foreground">
+                <span className={isMobile ? "text-[10px] font-body text-muted-foreground" : "text-[11px] font-body text-muted-foreground"}>
                   {insightsLoading ? "Updating..." : "Live preview"}
                 </span>
               </div>
@@ -898,33 +911,33 @@ export function TripMap({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
                   transition={{ duration: 0.28 }}
-                  className="rounded-2xl border border-border/40 bg-background/65 p-4 md:p-5"
+                  className={isMobile ? "rounded-xl border border-border/45 bg-background/65 p-3" : "rounded-2xl border border-border/40 bg-background/65 p-4 md:p-5"}
                 >
-                  <p className="text-xs uppercase tracking-wider font-body font-semibold text-muted-foreground mb-2">
+                  <p className={isMobile ? "text-[10px] uppercase tracking-wider font-body font-semibold text-muted-foreground mb-1.5" : "text-xs uppercase tracking-wider font-body font-semibold text-muted-foreground mb-2"}>
                     {activeSlide.kicker}
                   </p>
-                  <div className="flex items-start gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-primary/12 border border-primary/20 flex items-center justify-center shrink-0">
+                  <div className={isMobile ? "flex items-start gap-2.5" : "flex items-start gap-3"}>
+                    <div className={isMobile ? "w-8 h-8 rounded-lg bg-primary/12 border border-primary/20 flex items-center justify-center shrink-0" : "w-9 h-9 rounded-lg bg-primary/12 border border-primary/20 flex items-center justify-center shrink-0"}>
                       {activeSlide.id === "weather" ? (
-                        <CloudSun className="w-4 h-4 text-primary" />
+                        <CloudSun className={isMobile ? "w-3.5 h-3.5 text-primary" : "w-4 h-4 text-primary"} />
                       ) : (
-                        <ThermometerSun className="w-4 h-4 text-accent" />
+                        <ThermometerSun className={isMobile ? "w-3.5 h-3.5 text-accent" : "w-4 h-4 text-accent"} />
                       )}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-base font-body font-semibold text-foreground flex items-center gap-1.5">
+                      <p className={isMobile ? "text-sm font-body font-semibold text-foreground flex items-center gap-1" : "text-base font-body font-semibold text-foreground flex items-center gap-1.5"}>
                         <span>{activeSlide.glyph}</span>
                         <span>{activeSlide.title}</span>
                       </p>
-                      <p className="text-sm font-body text-muted-foreground mt-1.5 leading-relaxed">
-                        {activeSlide.body}
+                      <p className={isMobile ? "text-xs font-body text-muted-foreground mt-1 leading-snug" : "text-sm font-body text-muted-foreground mt-1.5 leading-relaxed"}>
+                        {slideBodyCopy}
                       </p>
                     </div>
                   </div>
                 </motion.div>
               </AnimatePresence>
 
-              <div className="mt-4 flex items-center justify-between gap-3">
+              <div className={isMobile ? "mt-2.5 flex items-center justify-between gap-2" : "mt-4 flex items-center justify-between gap-3"}>
                 <div className="flex items-center gap-2">
                   {insightSlides.map((slide, idx) => (
                     <button
@@ -935,7 +948,7 @@ export function TripMap({
                     >
                       <motion.span
                         className="block h-2 rounded-full bg-primary/30"
-                        animate={{ width: slideIndex === idx ? 30 : 10, opacity: slideIndex === idx ? 1 : 0.45 }}
+                        animate={{ width: slideIndex === idx ? (isMobile ? 22 : 30) : (isMobile ? 8 : 10), opacity: slideIndex === idx ? 1 : 0.45 }}
                         transition={{ duration: 0.2 }}
                       />
                     </button>
@@ -947,19 +960,19 @@ export function TripMap({
                     <button
                       onClick={goToPreviousSlide}
                       aria-label="Previous insight"
-                      className="w-8 h-8 rounded-full border border-border/60 bg-background/75 hover:bg-background transition-colors flex items-center justify-center text-foreground"
+                      className={isMobile ? "w-7 h-7 rounded-full border border-border/60 bg-background/75 hover:bg-background transition-colors flex items-center justify-center text-foreground" : "w-8 h-8 rounded-full border border-border/60 bg-background/75 hover:bg-background transition-colors flex items-center justify-center text-foreground"}
                     >
-                      <ChevronLeft className="w-4 h-4" />
+                      <ChevronLeft className={isMobile ? "w-3.5 h-3.5" : "w-4 h-4"} />
                     </button>
-                    <span className="text-xs font-body text-muted-foreground min-w-[44px] text-center">
+                    <span className={isMobile ? "text-[11px] font-body text-muted-foreground min-w-[34px] text-center" : "text-xs font-body text-muted-foreground min-w-[44px] text-center"}>
                       {slideIndex + 1}/{insightSlides.length}
                     </span>
                     <button
                       onClick={goToNextSlide}
                       aria-label="Next insight"
-                      className="w-8 h-8 rounded-full border border-border/60 bg-background/75 hover:bg-background transition-colors flex items-center justify-center text-foreground"
+                      className={isMobile ? "w-7 h-7 rounded-full border border-border/60 bg-background/75 hover:bg-background transition-colors flex items-center justify-center text-foreground" : "w-8 h-8 rounded-full border border-border/60 bg-background/75 hover:bg-background transition-colors flex items-center justify-center text-foreground"}
                     >
-                      <ChevronRight className="w-4 h-4" />
+                      <ChevronRight className={isMobile ? "w-3.5 h-3.5" : "w-4 h-4"} />
                     </button>
                   </div>
                 )}

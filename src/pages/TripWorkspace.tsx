@@ -92,7 +92,9 @@ export default function TripWorkspace() {
 
   const mobileToggleBottom = showMap
     ? "calc(env(safe-area-inset-bottom, 0px) + 1rem)"
-    : "calc(env(safe-area-inset-bottom, 0px) + 5.75rem)";
+    : itinerary
+      ? "calc(env(safe-area-inset-bottom, 0px) + 5.75rem)"
+      : "calc(env(safe-area-inset-bottom, 0px) + 1rem)";
 
   return (
     <div className="h-screen flex flex-col bg-background">
@@ -180,8 +182,8 @@ export default function TripWorkspace() {
 
       <AuthDialog open={authOpen} onOpenChange={setAuthOpen} />
 
-      {/* Mobile sticky bottom map/chat toggle — only after itinerary is ready */}
-      {isMobile && itinerary && (
+      {/* Mobile sticky bottom map/chat toggle */}
+      {isMobile && (
         <div
           className="fixed right-4 z-50 transition-[bottom] duration-200"
           style={{ bottom: mobileToggleBottom }}
@@ -191,7 +193,7 @@ export default function TripWorkspace() {
             className="shadow-lg rounded-full h-12 px-5 text-sm font-body font-semibold gap-2"
           >
             {showMap ? <MessageSquare className="w-4 h-4" /> : <Map className="w-4 h-4" />}
-            {showMap ? "Back to Chat" : "View on Map"}
+            {showMap ? "Back to Chat" : itinerary ? "View on Map" : "Preview Map"}
           </Button>
         </div>
       )}
