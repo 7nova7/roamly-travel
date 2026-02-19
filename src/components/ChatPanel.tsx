@@ -1162,7 +1162,11 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
                   {msg.type === "interests" && <InterestPicker onSelect={handleInterestSelect} />}
                   {msg.type === "pace" && <PacePicker onSelect={handlePaceSelect} />}
                   {msg.type === "loading" && (
-                    <div className="w-full max-w-[90%] space-y-2">
+                    <div
+                      className={`w-full max-w-[90%] space-y-2 ${
+                        isMobile && !generatedItinerary ? "mb-20" : ""
+                      }`}
+                    >
                       <LoadingAnimation />
                       {isMobile && !generatedItinerary && (
                         <MobileCityIntelCard
