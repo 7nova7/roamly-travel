@@ -1140,13 +1140,6 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
           />
         ) : (
           <>
-            {isMobile && !generatedItinerary && (
-              <MobileCityIntelCard
-                destination={tripConfig.to}
-                startDate={tripConfig.startDate}
-                endDate={tripConfig.endDate}
-              />
-            )}
             <AnimatePresence>
               {messages.map((msg) => (
                 <motion.div
@@ -1168,7 +1161,18 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
                   )}
                   {msg.type === "interests" && <InterestPicker onSelect={handleInterestSelect} />}
                   {msg.type === "pace" && <PacePicker onSelect={handlePaceSelect} />}
-                  {msg.type === "loading" && <LoadingAnimation />}
+                  {msg.type === "loading" && (
+                    <div className="w-full max-w-[90%] space-y-2">
+                      <LoadingAnimation />
+                      {isMobile && !generatedItinerary && (
+                        <MobileCityIntelCard
+                          destination={tripConfig.to}
+                          startDate={tripConfig.startDate}
+                          endDate={tripConfig.endDate}
+                        />
+                      )}
+                    </div>
+                  )}
                   {msg.type === "itinerary" && generatedItinerary && (
                     <div ref={planSectionRef} className="w-full space-y-3">
                       <div className="inline-flex rounded-xl border border-border/60 bg-card/70 backdrop-blur-sm p-1 shadow-sm">
