@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, X, Plus, Loader2, ArrowRight, Compass, Sparkles, BedDouble, MapPin, Building2 } from "lucide-react";
+import { Send, X, Plus, Loader2, ArrowRight, Compass, Sparkles, BedDouble, MapPin, Building2, ChevronLeft, ChevronRight, CloudSun, ThermometerSun } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { ToastAction } from "@/components/ui/toast";
@@ -9,7 +9,9 @@ import { INTEREST_OPTIONS, PACE_OPTIONS, type DayPlan, type TripConfig } from "@
 import { DayCard } from "./DayCard";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { loadGoogleMaps } from "@/lib/google-maps";
+import { fetchCityInsights, normalizeDestinationLabel, type CityInsightData } from "@/lib/city-intel";
 
 interface ChatMessage {
   id: string;
@@ -104,6 +106,7 @@ const LOADING_STEPS = [
   "Scoring nearby spots",
   "Balancing travel time + vibe",
 ];
+const CITY_INTEL_ROTATE_MS = 5200;
 
 const CHAT_CLOSE_PHRASES = [
   "done",
@@ -295,6 +298,7 @@ interface ChatPanelProps {
 }
 
 export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItineraryReady, onDayClick, focusedDay = null, onResetDayFocus, onStopClick, onStopZoom, onPreviewPin, onSaveTrip, onPreferencesUpdate, initialItinerary, reserveBottomSpace = false }: ChatPanelProps) {
+  const isMobile = useIsMobile();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [phase, setPhase] = useState(0);
   const [chatInitiated, setChatInitiated] = useState(Boolean(initialItinerary));
@@ -1136,6 +1140,13 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
           />
         ) : (
           <>
+            {isMobile && !generatedItinerary && (
+              <MobileCityIntelCard
+                destination={tripConfig.to}
+                startDate={tripConfig.startDate}
+                endDate={tripConfig.endDate}
+              />
+            )}
             <AnimatePresence>
               {messages.map((msg) => (
                 <motion.div
@@ -1291,6 +1302,195 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
         </div>
       )}
     </div>
+  );
+}
+
+function MobileCityIntelCard({
+  destination,
+  startDate,
+  endDate,
+}: {
+  destination?: string;
+  startDate?: string;
+  endDate?: string;
+}) {
+  const [insights, setInsights] = useState<CityInsightData | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [slideIndex, setSlideIndex] = useState(0);
+
+  useEffect(() => {
+    const city = normalizeDestinationLabel(destination);
+    if (!city) {
+      setInsights(null);
+      setIsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoading(true);
+    void fetchCityInsights(city, startDate, endDate)
+      .then((next) => {
+        if (!cancelled) setInsights(next);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [destination, endDate, startDate]);
+
+  useEffect(() => {
+    setSlideIndex(0);
+  }, [destination, endDate, startDate, insights?.cityLabel]);
+
+  const slides = useMemo(() => {
+    const city = insights?.cityLabel || normalizeDestinationLabel(destination) || "your destination";
+    const facts = insights?.facts?.length
+      ? insights.facts
+      : [`Collecting local highlights for ${city}...`];
+    const factSlides = facts.map((fact, idx) => ({
+      id: `fact-${idx}`,
+      kind: "fact" as const,
+      kicker: "Fun fact",
+      title: `About ${city}`,
+      body: fact,
+      glyph: "✨",
+    }));
+
+    return [
+      {
+        id: "weather",
+        kind: "weather" as const,
+        kicker: insights?.rangeLabel ? `Weather • ${insights.rangeLabel}` : "Weather",
+        title: insights?.weatherHeadline || "Weather snapshot loading",
+        body: insights?.weatherDetail || `Checking weather for ${city}...`,
+        glyph: insights?.weatherGlyph || "🌤️",
+      },
+      ...factSlides,
+    ];
+  }, [destination, insights]);
+
+  useEffect(() => {
+    if (slides.length <= 1) return;
+    const timer = window.setInterval(() => {
+      setSlideIndex((prev) => (prev + 1) % slides.length);
+    }, CITY_INTEL_ROTATE_MS);
+    return () => window.clearInterval(timer);
+  }, [slides.length]);
+
+  if (!slides.length) return null;
+
+  const activeSlide = slides[Math.max(0, Math.min(slideIndex, slides.length - 1))];
+  const hasMultipleSlides = slides.length > 1;
+  const bodyCopy = activeSlide.body.length > 118
+    ? `${activeSlide.body.slice(0, 115).trimEnd()}...`
+    : activeSlide.body;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      className="mx-1 mb-1 rounded-2xl border border-white/35 bg-card/78 backdrop-blur-xl shadow-[0_10px_26px_hsl(var(--foreground)/0.14)] overflow-hidden"
+    >
+      <div className="relative p-3">
+        <motion.div
+          aria-hidden
+          className="absolute -inset-10 bg-[radial-gradient(circle_at_16%_22%,hsl(var(--accent)/0.22),transparent_48%),radial-gradient(circle_at_80%_26%,hsl(var(--primary)/0.20),transparent_52%)]"
+          animate={{ rotate: [0, 6, 0], scale: [1, 1.02, 1] }}
+          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+        />
+
+        <div className="relative">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-card/80 px-2 py-1">
+              <Sparkles className="h-3.5 w-3.5 text-accent" />
+              <span className="text-[11px] font-body font-semibold text-foreground/90">
+                City Intel
+              </span>
+            </div>
+            <span className="text-[10px] font-body text-muted-foreground">
+              {isLoading ? "Updating..." : "Live preview"}
+            </span>
+          </div>
+
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeSlide.id}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.22 }}
+              className="rounded-xl border border-border/45 bg-background/70 p-3"
+            >
+              <p className="text-[10px] uppercase tracking-wider font-body font-semibold text-muted-foreground mb-1">
+                {activeSlide.kicker}
+              </p>
+              <div className="flex items-start gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-primary/12 border border-primary/20 flex items-center justify-center shrink-0">
+                  {activeSlide.kind === "weather" ? (
+                    <CloudSun className="w-3.5 h-3.5 text-primary" />
+                  ) : (
+                    <ThermometerSun className="w-3.5 h-3.5 text-accent" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-body font-semibold text-foreground flex items-center gap-1">
+                    <span>{activeSlide.glyph}</span>
+                    <span>{activeSlide.title}</span>
+                  </p>
+                  <p className="mt-1 text-xs font-body text-muted-foreground leading-snug">
+                    {bodyCopy}
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          </AnimatePresence>
+
+          <div className="mt-2 flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              {slides.map((slide, idx) => (
+                <button
+                  key={slide.id}
+                  onClick={() => setSlideIndex(idx)}
+                  aria-label={`Show insight ${idx + 1}`}
+                  className="focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-full"
+                >
+                  <motion.span
+                    className="block h-1.5 rounded-full bg-primary/30"
+                    animate={{ width: slideIndex === idx ? 20 : 7, opacity: slideIndex === idx ? 1 : 0.45 }}
+                    transition={{ duration: 0.2 }}
+                  />
+                </button>
+              ))}
+            </div>
+            {hasMultipleSlides && (
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setSlideIndex((prev) => (prev - 1 + slides.length) % slides.length)}
+                  aria-label="Previous insight"
+                  className="w-7 h-7 rounded-full border border-border/60 bg-background/75 hover:bg-background transition-colors flex items-center justify-center text-foreground"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-[11px] font-body text-muted-foreground min-w-[30px] text-center">
+                  {slideIndex + 1}/{slides.length}
+                </span>
+                <button
+                  onClick={() => setSlideIndex((prev) => (prev + 1) % slides.length)}
+                  aria-label="Next insight"
+                  className="w-7 h-7 rounded-full border border-border/60 bg-background/75 hover:bg-background transition-colors flex items-center justify-center text-foreground"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </motion.div>
   );
 }
 
