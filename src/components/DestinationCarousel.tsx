@@ -1,3 +1,4 @@
+import { useEffect, useRef, type WheelEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
 interface Destination {
@@ -36,7 +37,7 @@ function DestinationCard({ dest, onClick }: { dest: Destination; onClick: () => 
   return (
     <button
       onClick={onClick}
-      className="relative flex-shrink-0 w-[260px] h-[180px] sm:w-[280px] sm:h-[200px] rounded-2xl overflow-hidden group cursor-pointer"
+      className="relative snap-start flex-shrink-0 w-[260px] h-[180px] sm:w-[280px] sm:h-[200px] rounded-2xl overflow-hidden group cursor-pointer"
     >
       <img
         src={dest.image}
@@ -57,6 +58,10 @@ function DestinationCard({ dest, onClick }: { dest: Destination; onClick: () => 
 
 export function DestinationCarousel() {
   const navigate = useNavigate();
+  const row1Ref = useRef<HTMLDivElement>(null);
+  const row2Ref = useRef<HTMLDivElement>(null);
+  const pauseAutoUntilRef = useRef(0);
+  const carryRef = useRef({ row1: 0, row2: 0 });
 
   const handleClick = (dest: Destination) => {
     navigate("/plan", {
@@ -70,32 +75,100 @@ export function DestinationCarousel() {
     });
   };
 
+  const handleHorizontalWheel = (event: WheelEvent<HTMLDivElement>) => {
+    const container = event.currentTarget;
+    if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+    container.scrollLeft += event.deltaY;
+    pauseAutoUntilRef.current = Date.now() + 2200;
+    event.preventDefault();
+  };
+
+  useEffect(() => {
+    let rafId = 0;
+    let lastTs = performance.now();
+    const primeReverseRow = () => {
+      const row = row2Ref.current;
+      if (!row || row.scrollWidth <= row.clientWidth) return;
+      row.scrollLeft = row.scrollWidth / 2;
+    };
+    primeReverseRow();
+    window.addEventListener("resize", primeReverseRow);
+
+    const step = (ts: number) => {
+      const delta = ts - lastTs;
+      lastTs = ts;
+      const isDesktop = window.matchMedia("(min-width: 640px)").matches;
+      const paused = Date.now() < pauseAutoUntilRef.current;
+
+      if (isDesktop && !paused) {
+        const advanceRow = (
+          element: HTMLDivElement | null,
+          speedPxPerSecond: number,
+          direction: 1 | -1,
+          key: "row1" | "row2",
+        ) => {
+          if (!element || element.scrollWidth <= element.clientWidth) return;
+
+          const half = element.scrollWidth / 2;
+          carryRef.current[key] += (speedPxPerSecond * delta) / 1000;
+          const movePx = Math.floor(carryRef.current[key]);
+          carryRef.current[key] -= movePx;
+          if (movePx <= 0) return;
+
+          if (direction === 1) {
+            const next = element.scrollLeft + movePx;
+            element.scrollLeft = next >= half ? next - half : next;
+            return;
+          }
+
+          const next = element.scrollLeft - movePx;
+          element.scrollLeft = next <= 0 ? next + half : next;
+        };
+
+        advanceRow(row1Ref.current, 34, 1, "row1");
+        advanceRow(row2Ref.current, 30, -1, "row2");
+      }
+
+      rafId = window.requestAnimationFrame(step);
+    };
+
+    rafId = window.requestAnimationFrame(step);
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      window.removeEventListener("resize", primeReverseRow);
+    };
+  }, []);
+
   return (
-    <section className="py-12 overflow-hidden">
+    <section className="py-12">
       <h2 className="text-2xl sm:text-3xl font-display font-bold text-primary text-center mb-8">
         Popular Destinations
       </h2>
 
-      {/* Row 1 — scrolls left */}
-      <div className="mb-4 overflow-hidden">
-        <div
-          className="flex gap-4 w-max hover:[animation-play-state:paused]"
-          style={{ animation: "scroll-left 50s linear infinite" }}
-        >
+      {/* Row 1 — swipe/scroll (mobile + desktop mouse wheel) */}
+      <div
+        ref={row1Ref}
+        onWheel={handleHorizontalWheel}
+        className="mb-4 overflow-x-auto px-4 sm:px-0 snap-x snap-mandatory sm:snap-none [&::-webkit-scrollbar]:hidden"
+        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+      >
+        <div className="flex gap-4 w-max pr-4">
           {[...row1, ...row1].map((d, i) => (
-            <DestinationCard key={`r1-${i}`} dest={d} onClick={() => handleClick(d)} />
+            <DestinationCard key={`r1-${d.city}-${i}`} dest={d} onClick={() => handleClick(d)} />
           ))}
         </div>
       </div>
 
-      {/* Row 2 — scrolls right */}
-      <div className="overflow-hidden">
-        <div
-          className="flex gap-4 w-max hover:[animation-play-state:paused]"
-          style={{ animation: "scroll-right 55s linear infinite" }}
-        >
+      {/* Row 2 — swipe/scroll (mobile + desktop mouse wheel) */}
+      <div
+        ref={row2Ref}
+        onWheel={handleHorizontalWheel}
+        className="overflow-x-auto px-4 sm:px-0 snap-x snap-mandatory sm:snap-none [&::-webkit-scrollbar]:hidden"
+        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+      >
+        <div className="flex gap-4 w-max pr-4">
           {[...row2, ...row2].map((d, i) => (
-            <DestinationCard key={`r2-${i}`} dest={d} onClick={() => handleClick(d)} />
+            <DestinationCard key={`r2-${d.city}-${i}`} dest={d} onClick={() => handleClick(d)} />
           ))}
         </div>
       </div>
