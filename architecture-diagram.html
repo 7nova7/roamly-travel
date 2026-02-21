@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: white;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    padding: 32px 36px;
+    color: #111;
+    width: 760px;
+  }
+
+  h1 { font-size: 17px; font-weight: 700; text-align: center; margin-bottom: 3px; }
+  .sub { text-align: center; font-size: 10px; color: #999; margin-bottom: 20px; }
+
+  .layer { display: flex; align-items: stretch; margin-bottom: 8px; }
+  .lbl {
+    writing-mode: vertical-rl; transform: rotate(180deg);
+    font-size: 8px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+    color: #bbb; width: 16px; flex-shrink: 0; margin-right: 10px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .layer-content {
+    flex: 1; border: 1px solid #d0d0d0; border-radius: 7px; padding: 12px 14px;
+  }
+  .layer-title {
+    font-size: 8px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1px; color: #bbb; margin-bottom: 10px;
+  }
+
+  .row { display: flex; gap: 8px; }
+  .box { flex: 1; border: 1px solid #e0e0e0; border-radius: 5px; padding: 9px 10px; }
+  .box.wide { flex: 2; border-color: #bbb; background: #fafafa; }
+  .bt { font-size: 12px; font-weight: 700; margin-bottom: 3px; }
+  .bd { font-size: 10px; color: #666; line-height: 1.5; }
+
+  .inner { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-top: 8px; }
+  .ib { border: 1px solid #eee; border-radius: 4px; padding: 6px 8px; }
+  .ib .n { font-size: 11px; font-weight: 700; }
+  .ib .d { font-size: 9px; color: #888; }
+
+  .arrows {
+    display: flex; justify-content: space-around; align-items: flex-end;
+    height: 26px; padding: 0 80px; margin-bottom: 4px;
+  }
+  .ac { display: flex; flex-direction: column; align-items: center; }
+  .al { font-size: 9px; color: #bbb; margin-bottom: 2px; }
+  .aline { width: 1px; height: 12px; background: #ccc; }
+  .atip { width:0; height:0; border-left:3px solid transparent; border-right:3px solid transparent; border-top:4px solid #ccc; }
+
+  .bg { flex: 1; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+
+  .tag { display:inline-block; font-size:8px; padding:1px 6px; border:1px solid #ddd; border-radius:99px; color:#999; margin-top:4px; margin-right:2px; }
+
+  .flows { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
+  .fb { border: 1px solid #e0e0e0; border-radius: 5px; padding: 9px 10px; }
+  .fn { width:16px; height:16px; border:1px solid #ccc; border-radius:50%; font-size:9px; font-weight:700; display:flex; align-items:center; justify-content:center; margin-bottom:5px; color:#555; }
+  .ft { font-size: 11px; font-weight: 700; margin-bottom: 4px; }
+  .fs { font-size: 10px; color: #666; line-height: 1.65; }
+  .fs .a { color: #bbb; }
+</style>
+</head>
+<body>
+
+<h1>Roamly Travel — System Architecture</h1>
+<p class="sub">React 18 · Supabase · Mapbox GL · Gemini AI</p>
+
+<!-- FRONTEND -->
+<div class="layer">
+  <div class="lbl">Frontend</div>
+  <div class="layer-content">
+    <div class="layer-title">Client — React 18 SPA</div>
+    <div class="row">
+      <div class="box">
+        <div class="bt">LandingPage</div>
+        <div class="bd">Trip config form</div>
+      </div>
+      <div class="box wide">
+        <div class="bt">TripWorkspace — Main Hub</div>
+        <div class="inner">
+          <div class="ib"><div class="n">ChatPanel</div><div class="d">AI convo, streaming</div></div>
+          <div class="ib"><div class="n">TripMap</div><div class="d">Mapbox GL, 3D terrain</div></div>
+          <div class="ib"><div class="n">ItineraryGrid</div><div class="d">Day cards, stops</div></div>
+          <div class="ib"><div class="n">DestinationPanel</div><div class="d">POI details</div></div>
+          <div class="ib"><div class="n">DestCarousel</div><div class="d">Suggestions</div></div>
+          <div class="ib"><div class="n">AuthDialog</div><div class="d">Sign in / up</div></div>
+        </div>
+      </div>
+      <div class="box">
+        <div class="bt">MyTrips</div>
+        <div class="bd">Saved trips</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ARROWS -->
+<div class="arrows">
+  <div class="ac"><div class="al">Supabase SDK · JWT</div><div class="aline"></div><div class="atip"></div></div>
+  <div class="ac"><div class="al">functions.invoke()</div><div class="aline"></div><div class="atip"></div></div>
+  <div class="ac"><div class="al">REST / API keys</div><div class="aline"></div><div class="atip"></div></div>
+</div>
+
+<!-- BACKEND -->
+<div class="layer">
+  <div class="lbl">Backend</div>
+  <div class="bg">
+
+    <div class="layer-content">
+      <div class="layer-title">Supabase — PostgreSQL</div>
+      <div class="box" style="margin-bottom:6px;"><div class="bt" style="font-family:monospace;font-size:11px;">profiles</div><div class="bd">id · display_name · role</div></div>
+      <div class="box" style="margin-bottom:6px;"><div class="bt" style="font-family:monospace;font-size:11px;">trips</div><div class="bd">trip_config · itinerary · preferences (JSONB)</div></div>
+      <div class="box"><div class="bt" style="font-family:monospace;font-size:11px;">user_roles</div><div class="bd">role (admin | user)</div></div>
+      <div style="margin-top:6px;"><span class="tag">RLS</span><span class="tag">JWT Auth</span><span class="tag">DB Triggers</span></div>
+    </div>
+
+    <div class="layer-content">
+      <div class="layer-title">Edge Functions — Deno</div>
+      <div class="box" style="margin-bottom:6px;"><div class="bt">generate-itinerary</div><div class="bd">DayPlan[] with stops, times, costs</div><span class="tag">Gemini Flash</span></div>
+      <div class="box" style="margin-bottom:6px;"><div class="bt">get-destination-details</div><div class="bd">Restaurants, hotels, attractions</div><span class="tag">Gemini + Places</span></div>
+      <div class="box"><div class="bt">recommend-stays</div><div class="bd">Accommodation recs</div><span class="tag">Gemini Flash</span></div>
+    </div>
+
+    <div class="layer-content">
+      <div class="layer-title">Third-Party</div>
+      <div class="box" style="margin-bottom:6px;"><div class="bt">Lovable AI → Gemini Flash</div><div class="bd">Trip generation, structured JSON</div></div>
+      <div class="box" style="margin-bottom:6px;"><div class="bt">Mapbox GL JS</div><div class="bd">Interactive map, 3D terrain</div></div>
+      <div class="box"><div class="bt">Google Places</div><div class="bd">Autocomplete, POI photos</div></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- FLOWS -->
+<div class="layer">
+  <div class="lbl">Flows</div>
+  <div class="layer-content">
+    <div class="layer-title">Key Data Flows</div>
+    <div class="flows">
+      <div class="fb">
+        <div class="fn">1</div>
+        <div class="ft">Trip Creation</div>
+        <div class="fs">LandingPage<br><span class="a">↓ config</span><br>ChatPanel<br><span class="a">↓ invoke()</span><br>generate-itinerary<br><span class="a">↓ DayPlan[]</span><br>TripMap + Grid<br><span class="a">↓ save</span><br>trips (DB)</div>
+      </div>
+      <div class="fb">
+        <div class="fn">2</div>
+        <div class="ft">Stop Details</div>
+        <div class="fs">Map click<br><span class="a">↓ onStopClick</span><br>DestinationPanel<br><span class="a">↓ invoke()</span><br>get-destination-details<br><span class="a">↓ Gemini + Places</span><br>POI info shown</div>
+      </div>
+      <div class="fb">
+        <div class="fn">3</div>
+        <div class="ft">Trip Sharing</div>
+        <div class="fs">Share clicked<br><span class="a">↓ LZ-string encode</span><br>?share= URL<br><span class="a">↓ recipient opens</span><br>Decode + render<br>read-only view</div>
+      </div>
+      <div class="fb">
+        <div class="fn">4</div>
+        <div class="ft">Auth Flow</div>
+        <div class="fs">Save clicked<br><span class="a">↓ if unauthed</span><br>AuthDialog<br><span class="a">↓ Supabase Auth</span><br>JWT + profile created<br><span class="a">↓ RLS active</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

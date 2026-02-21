@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, type DragEvent } from "react";
-import { Reorder, motion } from "framer-motion";
+import { useEffect, useMemo, useState, type DragEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { Reorder, motion, useDragControls } from "framer-motion";
 import { Clock, Car, DollarSign, X, MapPin, Plus, GripVertical, Trash2 } from "lucide-react";
 import type { DayPlan, Stop } from "@/data/demoTrip";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -22,6 +22,39 @@ interface DayCardProps {
   onAddStop?: (dayNumber: number) => void;
   onMoveStop?: (move: { sourceDay: number; stopId: string; targetDay: number; targetStopId?: string }) => void;
   onReorderStops?: (dayNumber: number, orderedStopIds: string[]) => void;
+}
+
+interface MobileReorderStopItemProps {
+  stop: Stop;
+  index: number;
+  totalStops: number;
+  onDragEnd: () => void;
+  renderStopContent: (
+    stop: Stop,
+    index: number,
+    totalStops: number,
+    isMobileSortable: boolean,
+    onMobileHandlePointerDown?: (event: ReactPointerEvent<HTMLButtonElement>) => void,
+  ) => ReactNode;
+}
+
+function MobileReorderStopItem({ stop, index, totalStops, onDragEnd, renderStopContent }: MobileReorderStopItemProps) {
+  const dragControls = useDragControls();
+
+  return (
+    <Reorder.Item
+      value={stop.id}
+      className="list-none"
+      whileDrag={{ scale: 1.01, zIndex: 20 }}
+      dragListener={false}
+      dragControls={dragControls}
+      onDragEnd={onDragEnd}
+    >
+      {renderStopContent(stop, index, totalStops, true, (event) => {
+        dragControls.start(event);
+      })}
+    </Reorder.Item>
+  );
 }
 
 export function DayCard({
@@ -78,7 +111,13 @@ export function DayCard({
     }
   };
 
-  const renderStopContent = (stop: Stop, index: number, totalStops: number, isMobileSortable = false) => (
+  const renderStopContent = (
+    stop: Stop,
+    index: number,
+    totalStops: number,
+    isMobileSortable = false,
+    onMobileHandlePointerDown?: (event: ReactPointerEvent<HTMLButtonElement>) => void,
+  ) => (
     <>
       {stop.driveFromPrev && (
         <div className="flex items-center gap-2 py-1.5 pl-6">
@@ -136,14 +175,30 @@ export function DayCard({
           highlightedStop === stop.id ? "bg-accent/10 shadow-sm" : "hover:bg-secondary/50"
         } ${
           isMobileSortable
-            ? "cursor-grab active:cursor-grabbing touch-pan-y"
+            ? "cursor-pointer touch-pan-y"
             : `cursor-pointer ${dragOverStopId === stop.id ? "ring-2 ring-accent/50 bg-accent/10" : ""}`
         }`}
       >
         {(onMoveStop || isMobileSortable) && (
-          <div className="shrink-0 text-muted-foreground mt-1">
-            <GripVertical className="w-3.5 h-3.5" />
-          </div>
+          isMobileSortable ? (
+            <button
+              type="button"
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                onMobileHandlePointerDown?.(e);
+              }}
+              onClick={(e) => e.stopPropagation()}
+              className="shrink-0 text-muted-foreground mt-1 cursor-grab active:cursor-grabbing touch-none"
+              aria-label="Reorder activity"
+              title="Drag to reorder"
+            >
+              <GripVertical className="w-3.5 h-3.5" />
+            </button>
+          ) : (
+            <div className="shrink-0 text-muted-foreground mt-1">
+              <GripVertical className="w-3.5 h-3.5" />
+            </div>
+          )
         )}
         <div className="flex flex-col items-center shrink-0">
           <div className="w-2.5 h-2.5 rounded-full border-2 mt-1" style={{ borderColor: day.color }} />
@@ -276,15 +331,14 @@ export function DayCard({
         {canUseMobileReorder ? (
           <Reorder.Group axis="y" values={mobileOrderIds} onReorder={setMobileOrderIds} className="space-y-1">
             {orderedMobileStops.map((stop, i) => (
-              <Reorder.Item
+              <MobileReorderStopItem
                 key={stop.id}
-                value={stop.id}
-                className="list-none"
-                whileDrag={{ scale: 1.01, zIndex: 20 }}
+                stop={stop}
+                index={i}
+                totalStops={orderedMobileStops.length}
                 onDragEnd={() => onReorderStops?.(day.day, mobileOrderIds)}
-              >
-                {renderStopContent(stop, i, orderedMobileStops.length, true)}
-              </Reorder.Item>
+                renderStopContent={renderStopContent}
+              />
             ))}
           </Reorder.Group>
         ) : (
