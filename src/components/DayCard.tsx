@@ -48,6 +48,7 @@ function MobileReorderStopItem({ stop, index, totalStops, onDragEnd, renderStopC
       whileDrag={{ scale: 1.01, zIndex: 20 }}
       dragListener={false}
       dragControls={dragControls}
+      style={{ touchAction: "pan-y" }}
       onDragEnd={onDragEnd}
     >
       {renderStopContent(stop, index, totalStops, true, (event) => {
@@ -185,6 +186,7 @@ export function DayCard({
               type="button"
               onPointerDown={(e) => {
                 e.stopPropagation();
+                e.preventDefault();
                 onMobileHandlePointerDown?.(e);
               }}
               onClick={(e) => e.stopPropagation()}
@@ -329,7 +331,7 @@ export function DayCard({
         }}
       >
         {canUseMobileReorder ? (
-          <Reorder.Group axis="y" values={mobileOrderIds} onReorder={setMobileOrderIds} className="space-y-1">
+          <Reorder.Group axis="y" values={mobileOrderIds} onReorder={setMobileOrderIds} className="space-y-1" style={{ touchAction: "pan-y" }}>
             {orderedMobileStops.map((stop, i) => (
               <MobileReorderStopItem
                 key={stop.id}
