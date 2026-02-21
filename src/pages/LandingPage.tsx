@@ -16,9 +16,9 @@ import { CityImage } from "@/components/CityImage";
 
 const tripLengths = ["Day trip", "Weekend", "Full week"];
 const budgetVibes = [
-  { label: "Backpack & street snacks", hint: "Finds free gems and local cheap eats." },
-  { label: "Main character moments", hint: "A balanced mix of splurge and save." },
-  { label: "Suite life energy", hint: "Premium picks, iconic spots, less compromise." },
+  { tier: "$", label: "Backpack & street snacks", hint: "Finds free gems and local cheap eats." },
+  { tier: "$$", label: "Main character moments", hint: "A balanced mix of splurge and save." },
+  { tier: "$$$", label: "Suite life energy", hint: "Premium picks, iconic spots, less compromise." },
 ];
 
 
@@ -42,7 +42,8 @@ export default function LandingPage() {
 
     const origin = roadTrip ? from.trim() : to.trim();
     const destination = to.trim();
-    const budget = budgetVibe;
+    const selectedBudget = budgetVibes.find((option) => option.label === budgetVibe);
+    const budget = `${selectedBudget?.tier || "$$"} ${budgetVibe}`;
     const mode = roadTrip ? "Car" : "Plane";
 
     if (dateMode === "specific" && dateRange?.from && dateRange?.to) {
@@ -299,7 +300,10 @@ export default function LandingPage() {
                               : "bg-card border-border hover:bg-secondary/50"
                           }`}
                         >
-                          <p className="text-xs font-body font-semibold">{option.label}</p>
+                          <p className="text-xs font-body font-semibold">
+                            <span className="mr-1">{option.tier}</span>
+                            {option.label}
+                          </p>
                           <p className={`text-[11px] font-body mt-1 ${budgetVibe === option.label ? "text-primary-foreground/80" : "text-muted-foreground"}`}>{option.hint}</p>
                         </button>
                       ))}

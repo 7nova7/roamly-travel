@@ -74,7 +74,7 @@ function DayCardTile({
 
 export function ItineraryGridPanel({ itinerary, destination, onOpenDayOnMap }: ItineraryGridPanelProps) {
   return (
-    <div className="h-full overflow-y-auto bg-[radial-gradient(95%_80%_at_0%_0%,hsl(var(--accent)/0.08),transparent_45%),radial-gradient(90%_80%_at_100%_0%,hsl(var(--primary)/0.10),transparent_40%),hsl(var(--background))] p-4">
+    <div className="h-full overflow-y-auto bg-[radial-gradient(95%_80%_at_0%_0%,hsl(var(--accent)/0.08),transparent_45%),radial-gradient(90%_80%_at_100%_0%,hsl(var(--primary)/0.10),transparent_40%),hsl(var(--background))] p-4 pt-20">
       <div className="mb-3 rounded-xl border border-border/60 bg-card/70 px-3 py-2 backdrop-blur-sm">
         <p className="text-[11px] font-body uppercase tracking-wide text-muted-foreground">Itinerary Grid</p>
         <p className="text-sm font-body font-semibold text-foreground">Day-by-day highlights</p>

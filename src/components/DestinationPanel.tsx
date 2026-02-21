@@ -54,6 +54,25 @@ interface DestinationPanelProps {
   onClose: () => void;
 }
 
+const CJK_TEXT_REGEX = /[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF\u3040-\u30FF\uFF66-\uFF9F]+/g;
+
+function sanitizeNoCjkText<T>(input: T): T {
+  if (typeof input === "string") {
+    return input.replace(CJK_TEXT_REGEX, " ").replace(/\s+/g, " ").trim() as T;
+  }
+  if (Array.isArray(input)) {
+    return input.map((entry) => sanitizeNoCjkText(entry)) as T;
+  }
+  if (input && typeof input === "object") {
+    const out: Record<string, unknown> = {};
+    Object.entries(input as Record<string, unknown>).forEach(([key, value]) => {
+      out[key] = sanitizeNoCjkText(value);
+    });
+    return out as T;
+  }
+  return input;
+}
+
 export function DestinationPanel({ stop, onClose }: DestinationPanelProps) {
   const [details, setDetails] = useState<DestinationDetails | null>(null);
   const [loading, setLoading] = useState(false);
@@ -76,7 +95,7 @@ export function DestinationPanel({ stop, onClose }: DestinationPanelProps) {
         });
         if (error) throw error;
         if (data?.error) throw new Error(data.error);
-        setDetails(data);
+        setDetails(sanitizeNoCjkText(data) as DestinationDetails);
       } catch (err: any) {
         console.error("Failed to load destination details:", err);
         toast({ title: "Failed to load details", description: err?.message || "Please try again.", variant: "destructive" });

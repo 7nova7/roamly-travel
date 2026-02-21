@@ -96,10 +96,15 @@ interface GoogleAutocompleteInstance {
 }
 
 const STAY_BUDGET_VIBES = [
-  { label: "Backpack & street snacks", hint: "Smart-value stays close to the action." },
-  { label: "Main character moments", hint: "Stylish comfort with great location balance." },
-  { label: "Suite life energy", hint: "Premium hotels with memorable views and perks." },
+  { tier: "$", label: "Backpack & street snacks", hint: "Smart-value stays close to the action." },
+  { tier: "$$", label: "Main character moments", hint: "Stylish comfort with great location balance." },
+  { tier: "$$$", label: "Suite life energy", hint: "Premium hotels with memorable views and perks." },
 ];
+
+function formatStayBudgetVibe(vibe: string): string {
+  const matched = STAY_BUDGET_VIBES.find((option) => option.label === vibe);
+  return matched ? `${matched.tier} ${matched.label}` : vibe;
+}
 
 const LOADING_STEPS = [
   "Optimizing your route",
@@ -179,6 +184,52 @@ const CHAT_ACTION_KEYWORDS = [
 const DEFAULT_DAY_START_MINUTES = 9 * 60 + 30; // 9:30 AM
 const DEFAULT_STOP_GAP_MINUTES = 150; // 2.5h
 const DAY_COLORS = ["#1B4332", "#2563EB", "#F4A261", "#D6336C", "#6D28D9", "#0D9488", "#EAB308"];
+const CJK_TEXT_REGEX = /[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF\u3040-\u30FF\uFF66-\uFF9F]+/g;
+
+function stripCjkScripts(value: string): string {
+  return value.replace(CJK_TEXT_REGEX, " ").replace(/\s+/g, " ").trim();
+}
+
+function sanitizeVisibleText(value: unknown, fallback = ""): string {
+  if (typeof value !== "string") return fallback;
+  const cleaned = stripCjkScripts(value);
+  return cleaned || fallback;
+}
+
+function sanitizeOptionalVisibleText(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const cleaned = stripCjkScripts(value);
+  return cleaned || undefined;
+}
+
+function sanitizeDayPlans(days: DayPlan[]): DayPlan[] {
+  return days.map((day) => ({
+    ...day,
+    title: sanitizeVisibleText(day.title, "Day plan"),
+    subtitle: sanitizeVisibleText(day.subtitle, "Plan details"),
+    totalDriving: sanitizeVisibleText(day.totalDriving, "0m"),
+    estimatedCost: sanitizeVisibleText(day.estimatedCost, "$0"),
+    stops: day.stops.map((stop, stopIndex) => {
+      const tags = Array.isArray(stop.tags)
+        ? stop.tags
+          .map((tag) => sanitizeVisibleText(tag))
+          .filter(Boolean)
+        : [];
+
+      return {
+        ...stop,
+        id: sanitizeVisibleText(stop.id, `d${day.day}s${stopIndex + 1}`),
+        time: sanitizeVisibleText(stop.time, "Anytime"),
+        name: sanitizeVisibleText(stop.name, "Untitled stop"),
+        description: sanitizeVisibleText(stop.description, "No details available."),
+        hours: sanitizeVisibleText(stop.hours, "Hours vary"),
+        cost: sanitizeVisibleText(stop.cost, "Cost varies"),
+        driveFromPrev: sanitizeOptionalVisibleText(stop.driveFromPrev),
+        tags: tags.length > 0 ? tags : ["Activity"],
+      };
+    }),
+  }));
+}
 
 function parseClockTimeToMinutes(value: string): number | null {
   const match = value.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
@@ -301,7 +352,7 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
   const isMobile = useIsMobile();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [phase, setPhase] = useState(0);
-  const [chatInitiated, setChatInitiated] = useState(Boolean(initialItinerary));
+  const [chatInitiated, setChatInitiated] = useState(true);
   const [isTyping, setIsTyping] = useState(false);
   const [generatedItinerary, setGeneratedItinerary] = useState<DayPlan[] | null>(null);
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
@@ -322,15 +373,17 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
   const { toast } = useToast();
 
   const addBotMessage = useCallback((content: string, type: ChatMessage["type"] = "text", delay = 800) => {
+    const safeContent = sanitizeVisibleText(content, "Message unavailable.");
     setIsTyping(true);
     setTimeout(() => {
       setIsTyping(false);
-      setMessages(prev => [...prev, { id: `msg-${Date.now()}`, sender: "bot", content, type }]);
+      setMessages(prev => [...prev, { id: `msg-${Date.now()}`, sender: "bot", content: safeContent, type }]);
     }, delay);
   }, []);
 
   const addUserMessage = useCallback((content: string) => {
-    setMessages(prev => [...prev, { id: `msg-${Date.now()}`, sender: "user", content, type: "text" }]);
+    const safeContent = sanitizeVisibleText(content, "Message sent.");
+    setMessages(prev => [...prev, { id: `msg-${Date.now()}`, sender: "user", content: safeContent, type: "text" }]);
   }, []);
 
   const scrollToPlanSection = useCallback(() => {
@@ -345,20 +398,21 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
   }, []);
 
   const addBotMessageImmediate = useCallback((content: string, type: ChatMessage["type"] = "text") => {
-    setMessages(prev => [...prev, { id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, sender: "bot", content, type }]);
+    const safeContent = sanitizeVisibleText(content, "Message unavailable.");
+    setMessages(prev => [...prev, { id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, sender: "bot", content: safeContent, type }]);
   }, []);
 
   const updateItinerary = useCallback((updater: (prev: DayPlan[]) => DayPlan[]) => {
     setGeneratedItinerary(prev => {
       if (!prev) return prev;
-      const next = updater(prev);
+      const next = sanitizeDayPlans(updater(prev));
       onItineraryReady(next);
       return next;
     });
   }, [onItineraryReady]);
 
   const getErrorMessage = useCallback((err: unknown, fallback: string) => (
-    err instanceof Error ? err.message : fallback
+    sanitizeVisibleText(err instanceof Error ? err.message : fallback, fallback)
   ), []);
 
   const normalizeStayOption = useCallback((raw: unknown): StayOption | null => {
@@ -375,15 +429,15 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
         : `stay-${Date.now()}`;
 
     return {
-      id: idBase,
-      name: typeof value.name === "string" ? value.name : "Unnamed stay",
-      type: typeof value.type === "string" ? value.type : "Hotel",
-      neighborhood: typeof value.neighborhood === "string" ? value.neighborhood : "Central",
-      address: typeof value.address === "string" ? value.address : "",
-      nightlyPrice: typeof value.nightlyPrice === "string" ? value.nightlyPrice : "Price varies",
-      style: typeof value.style === "string" ? value.style : "Recommended",
-      why: typeof value.why === "string" ? value.why : "Good match for your trip.",
-      bestFor: typeof value.bestFor === "string" ? value.bestFor : "General travelers",
+      id: sanitizeVisibleText(idBase, `stay-${Date.now()}`),
+      name: sanitizeVisibleText(typeof value.name === "string" ? value.name : "Unnamed stay", "Unnamed stay"),
+      type: sanitizeVisibleText(typeof value.type === "string" ? value.type : "Hotel", "Hotel"),
+      neighborhood: sanitizeVisibleText(typeof value.neighborhood === "string" ? value.neighborhood : "Central", "Central"),
+      address: sanitizeVisibleText(typeof value.address === "string" ? value.address : "", "Address unavailable"),
+      nightlyPrice: sanitizeVisibleText(typeof value.nightlyPrice === "string" ? value.nightlyPrice : "Price varies", "Price varies"),
+      style: sanitizeVisibleText(typeof value.style === "string" ? value.style : "Recommended", "Recommended"),
+      why: sanitizeVisibleText(typeof value.why === "string" ? value.why : "Good match for your trip.", "Good match for your trip."),
+      bestFor: sanitizeVisibleText(typeof value.bestFor === "string" ? value.bestFor : "General travelers", "General travelers"),
       lat,
       lng,
     };
@@ -433,8 +487,9 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
 
     // If loading a saved trip, skip the conversation flow
     if (initialItinerary) {
-      setGeneratedItinerary(initialItinerary);
-      onItineraryReady(initialItinerary);
+      const sanitizedSavedItinerary = sanitizeDayPlans(initialItinerary);
+      setGeneratedItinerary(sanitizedSavedItinerary);
+      onItineraryReady(sanitizedSavedItinerary);
       addBotMessage("Welcome back! Here's your saved itinerary. Want me to adjust anything?", "text", 300);
       setTimeout(() => {
         setMessages(prev => [...prev, { id: "itinerary", sender: "bot", content: "", type: "itinerary" }]);
@@ -592,7 +647,7 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
   }, [addBotMessage, addUserMessage, openStayBudgetPrompt]);
 
   const handleStayBudgetSelect = useCallback((vibe: string) => {
-    addUserMessage(vibe);
+    addUserMessage(formatStayBudgetVibe(vibe));
     setTimeout(() => {
       addBotMessage("Great pick. I’m finding places to stay near your route...", "text", 300);
       setTimeout(() => {
@@ -644,7 +699,11 @@ export function ChatPanel({ tripConfig, onHighlightStop, highlightedStop, onItin
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
-      const itinerary: DayPlan[] = data.itinerary;
+      const rawItinerary = Array.isArray(data?.itinerary) ? (data.itinerary as DayPlan[]) : null;
+      if (!rawItinerary || rawItinerary.length === 0) {
+        throw new Error("No itinerary was returned.");
+      }
+      const itinerary = sanitizeDayPlans(rawItinerary);
       setGeneratedItinerary(itinerary);
       console.info(`[generate-itinerary] completed in ${Math.round(performance.now() - start)}ms`);
 
@@ -1759,7 +1818,10 @@ function StayBudgetPicker({ onSelect }: { onSelect: (vibe: string) => void }) {
             onClick={() => onSelect(option.label)}
             className="rounded-xl border border-border/60 bg-card hover:bg-secondary/80 transition-colors text-left p-3"
           >
-            <p className="text-xs font-body font-semibold text-foreground">{option.label}</p>
+            <p className="text-xs font-body font-semibold text-foreground">
+              <span className="mr-1">{option.tier}</span>
+              {option.label}
+            </p>
             <p className="text-[11px] font-body text-muted-foreground mt-1">{option.hint}</p>
           </button>
         ))}
@@ -1816,7 +1878,7 @@ function StayRecommendationsPanel({
           <BedDouble className="w-4 h-4 text-accent" />
           <p className="text-xs font-body font-semibold text-foreground">Stay recommendations</p>
         </div>
-        {budgetVibe && <p className="text-[11px] font-body text-muted-foreground">{budgetVibe}</p>}
+        {budgetVibe && <p className="text-[11px] font-body text-muted-foreground">{formatStayBudgetVibe(budgetVibe)}</p>}
       </div>
       {selectedOptions.length > 0 && (
         <div className="rounded-2xl border border-primary/20 bg-primary/5 p-3 space-y-2">
