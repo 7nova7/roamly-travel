@@ -194,6 +194,8 @@ export function TripMap({
     previewMarkerRef.current?.remove();
     previewMarkerRef.current = null;
 
+    if (!visible) return;
+
     const pin = previewPinRef.current;
     if (!pin) return;
 
@@ -291,7 +293,9 @@ export function TripMap({
       applyTerrainMode(map, styleId, pitch, bearing, isMobile);
       // Re-add route and markers without resetting position
       addRouteAndMarkers(true);
-      renderPreviewPin();
+      if (visible) {
+        renderPreviewPin();
+      }
 
       if (styleId === "terrain") {
         const min3DZoom = isMobile ? MOBILE_3D_MIN_ZOOM : DESKTOP_3D_MIN_ZOOM;
@@ -445,13 +449,23 @@ export function TripMap({
   useEffect(() => {
     previewPinRef.current = previewPin || null;
     if (!mapReady || !mapInstance.current) return;
+    if (!visible) {
+      previewMarkerRef.current?.remove();
+      previewMarkerRef.current = null;
+      return;
+    }
     renderPreviewPin();
-  }, [previewPin, mapReady]);
+  }, [previewPin, mapReady, visible]);
 
   // Resize on visibility change
   useEffect(() => {
     const map = mapInstance.current;
-    if (!map || !visible) return;
+    if (!map) return;
+    if (!visible) {
+      previewMarkerRef.current?.remove();
+      previewMarkerRef.current = null;
+      return;
+    }
     setTimeout(() => {
       map.resize();
       if (activeStyle === "terrain") {
@@ -461,6 +475,7 @@ export function TripMap({
           map.easeTo({ zoom: min3DZoom, duration: 450, essential: true });
         }
       }
+      renderPreviewPin();
     }, 100);
   }, [visible, activeStyle, isMobile]);
 
@@ -540,7 +555,7 @@ export function TripMap({
   };
 
   return (
-    <div className="relative h-full w-full">
+    <div className={`relative h-full w-full ${visible ? "" : "invisible"}`}>
       <div ref={mapRef} className="h-full w-full" />
       <MapLayerSwitcher activeStyle={activeStyle} onStyleChange={handleStyleChange} />
       {itinerary && (

@@ -193,7 +193,7 @@ export default function TripWorkspace() {
                 <ItineraryGridPanel itinerary={itinerary} destination={tripConfig.to} onOpenDayOnMap={handleOpenDayOnMap} />
               ) : (
                 <>
-                  <TripMap itinerary={itinerary} highlightedStop={highlightedStop} onHighlightStop={setHighlightedStop} focusedDay={focusedDay} onResetFocus={() => setFocusedDay(null)} onFocusDay={handleDayFocus} onStopClick={handleStopClick} zoomTarget={zoomTarget} onZoomComplete={() => setZoomTarget(null)} previewPin={previewPin} destination={tripConfig.to} startDate={tripConfig.startDate} endDate={tripConfig.endDate} />
+                  <TripMap itinerary={itinerary} highlightedStop={highlightedStop} onHighlightStop={setHighlightedStop} focusedDay={focusedDay} onResetFocus={() => setFocusedDay(null)} onFocusDay={handleDayFocus} onStopClick={handleStopClick} visible={!selectedStop} zoomTarget={zoomTarget} onZoomComplete={() => setZoomTarget(null)} previewPin={previewPin} destination={tripConfig.to} startDate={tripConfig.startDate} endDate={tripConfig.endDate} />
                   <DestinationPanel stop={selectedStop} onClose={() => setSelectedStop(null)} />
                 </>
               )}
@@ -235,7 +235,7 @@ export default function TripWorkspace() {
                 <ItineraryGridPanel itinerary={itinerary} destination={tripConfig.to} onOpenDayOnMap={handleOpenDayOnMap} />
               ) : (
                 <>
-                  <TripMap itinerary={itinerary} highlightedStop={highlightedStop} onHighlightStop={setHighlightedStop} focusedDay={focusedDay} onResetFocus={() => setFocusedDay(null)} onFocusDay={handleDayFocus} onStopClick={handleStopClick} visible={showMap} zoomTarget={zoomTarget} onZoomComplete={() => setZoomTarget(null)} previewPin={previewPin} destination={tripConfig.to} startDate={tripConfig.startDate} endDate={tripConfig.endDate} />
+                  <TripMap itinerary={itinerary} highlightedStop={highlightedStop} onHighlightStop={setHighlightedStop} focusedDay={focusedDay} onResetFocus={() => setFocusedDay(null)} onFocusDay={handleDayFocus} onStopClick={handleStopClick} visible={showMap && !selectedStop} zoomTarget={zoomTarget} onZoomComplete={() => setZoomTarget(null)} previewPin={previewPin} destination={tripConfig.to} startDate={tripConfig.startDate} endDate={tripConfig.endDate} />
                   <DestinationPanel stop={selectedStop} onClose={() => setSelectedStop(null)} />
                 </>
               )}

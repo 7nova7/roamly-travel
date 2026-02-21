@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { ImageIcon } from "lucide-react";
 import { loadGoogleMaps } from "@/lib/google-maps";
 
 interface ActivityImageProps {
@@ -69,6 +68,7 @@ interface GoogleMapsPlacesLike {
 }
 
 const activityImageCache = new Map<string, string>();
+const failedImageSources = new Set<string>();
 const destinationCenterCache = new Map<string, GeoPoint | null>();
 const destinationCenterPending = new Map<string, Promise<GeoPoint | null>>();
 const destinationImageCache = new Map<string, string | null>();
@@ -181,21 +181,6 @@ function normalizeDestinationLabel(destination?: string): string | null {
   if (!raw) return null;
   const firstSegment = raw.split(",")[0]?.trim();
   return firstSegment || raw;
-}
-
-function buildQueryPhotoFallback(activity: string, destination?: string): string[] {
-  const city = normalizeDestinationLabel(destination);
-  const keywords = [normalizeActivityName(activity), city, "travel"]
-    .filter((value): value is string => Boolean(value && value.trim()))
-    .join(",");
-  const cityOnly = city ? `${city},travel` : "travel,city";
-
-  return [
-    `https://source.unsplash.com/640x420/?${encodeURIComponent(keywords)}`,
-    `https://loremflickr.com/640/420/${encodeURIComponent(keywords)}`,
-    `https://source.unsplash.com/640x420/?${encodeURIComponent(cityOnly)}`,
-    `https://loremflickr.com/640/420/${encodeURIComponent(cityOnly)}`,
-  ];
 }
 
 function tokenOverlap(a: string[], b: string[]): number {
@@ -380,6 +365,36 @@ function dedupeCandidates(candidates: PlaceResultLike[]): PlaceResultLike[] {
   return Array.from(deduped.values());
 }
 
+function pickNearestLocalPhoto(
+  candidates: PlaceResultLike[],
+  stopPoint: GeoPoint | null,
+  destinationCenter: GeoPoint | null,
+): string | null {
+  let bestDistance = Number.POSITIVE_INFINITY;
+  let bestPhoto: string | null = null;
+
+  for (const candidate of candidates) {
+    const photo = extractPhotoUrl(candidate);
+    if (!photo) continue;
+
+    const point = toGeoPoint(candidate.geometry?.location);
+    if (!isWithinCityBounds(point, stopPoint, destinationCenter)) continue;
+
+    const distance = stopPoint && point
+      ? haversineKm(stopPoint, point)
+      : destinationCenter && point
+        ? haversineKm(destinationCenter, point)
+        : 0;
+
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestPhoto = photo;
+    }
+  }
+
+  return bestPhoto;
+}
+
 async function findBestGooglePhoto(
   activity: string,
   destination: string | undefined,
@@ -453,6 +468,19 @@ async function findBestGooglePhoto(
   }
 
   if (relaxedBestScore >= 5 && relaxedBestPhoto) return relaxedBestPhoto;
+
+  const nearestLocalPhoto = pickNearestLocalPhoto(candidates, stopPoint, destinationCenter);
+  if (nearestLocalPhoto) return nearestLocalPhoto;
+
+  if (stopPoint) {
+    const broadNearby = await runNearbySearch(service, maps, {
+      location: stopPoint,
+      radius: 3200,
+    });
+    const broadCandidates = dedupeCandidates(broadNearby);
+    const broadLocalPhoto = pickNearestLocalPhoto(broadCandidates, stopPoint, destinationCenter);
+    if (broadLocalPhoto) return broadLocalPhoto;
+  }
 
   const themedQueries = Array.from(new Set([
     destination ? `${destination} ${tags[0] || "travel"}` : "",
@@ -621,7 +649,6 @@ async function findDestinationFallbackImage(destination?: string): Promise<strin
     }
   }
 
-  destinationImageCache.set(label, null);
   return null;
 }
 
@@ -651,6 +678,10 @@ function uniqueStrings(values: Array<string | null | undefined>): string[] {
   return output;
 }
 
+function withHealthySources(values: Array<string | null | undefined>): string[] {
+  return uniqueStrings(values).filter((source) => !failedImageSources.has(source));
+}
+
 export function ActivityImage({
   activity,
   destination,
@@ -672,29 +703,25 @@ export function ActivityImage({
     [activity, destination, stopPoint],
   );
   const cachedPrimary = activityImageCache.get(cacheKey) || null;
-
-  const fallbackSources = useMemo(() => uniqueStrings(["/placeholder.svg"]), []);
+  const primarySource = imageUrl || cachedPrimary;
   const [sourceList, setSourceList] = useState<string[]>(
-    uniqueStrings([imageUrl || cachedPrimary, ...fallbackSources]),
+    withHealthySources([primarySource]),
   );
   const [sourceIndex, setSourceIndex] = useState(0);
-  const [isResolving, setIsResolving] = useState(Boolean(!imageUrl && !cachedPrimary));
+  const [isResolving, setIsResolving] = useState(Boolean(!primarySource));
+  const [primaryFailed, setPrimaryFailed] = useState(false);
+
+  useEffect(() => {
+    setPrimaryFailed(false);
+  }, [cacheKey, primarySource]);
 
   useEffect(() => {
     let cancelled = false;
     setSourceIndex(0);
 
-    if (imageUrl) {
-      activityImageCache.set(cacheKey, imageUrl);
-      setSourceList(uniqueStrings([imageUrl, ...fallbackSources]));
-      setIsResolving(false);
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    if (cachedPrimary) {
-      setSourceList(uniqueStrings([cachedPrimary, ...fallbackSources]));
+    if (primarySource && !primaryFailed) {
+      activityImageCache.set(cacheKey, primarySource);
+      setSourceList(withHealthySources([primarySource]));
       setIsResolving(false);
       return () => {
         cancelled = true;
@@ -718,14 +745,12 @@ export function ActivityImage({
       if (resolved) {
         activityImageCache.set(cacheKey, resolved);
       }
-      const queryFallbacks = buildQueryPhotoFallback(activity, destination);
-      setSourceList(uniqueStrings([resolved, ...queryFallbacks, ...fallbackSources]));
+      setSourceList(withHealthySources([resolved]));
       setSourceIndex(0);
       setIsResolving(false);
     })().catch(() => {
       if (cancelled) return;
-      const queryFallbacks = buildQueryPhotoFallback(activity, destination);
-      setSourceList(uniqueStrings([...queryFallbacks, ...fallbackSources]));
+      setSourceList([]);
       setSourceIndex(0);
       setIsResolving(false);
     });
@@ -733,32 +758,47 @@ export function ActivityImage({
     return () => {
       cancelled = true;
     };
-  }, [activity, cacheKey, cachedPrimary, description, destination, fallbackSources, imageUrl, normalizedTags, stopPoint]);
+  }, [activity, cacheKey, description, destination, normalizedTags, primaryFailed, primarySource, stopPoint]);
 
-  const currentSrc = sourceList[sourceIndex] || "/placeholder.svg";
+  const currentSrc = sourceList[sourceIndex] || null;
 
   return (
     <div className={`relative overflow-hidden bg-secondary/50 ${className || ""}`}>
-      {isResolving && !currentSrc && <div className="absolute inset-0 animate-pulse bg-secondary" />}
+      {isResolving && <div className="absolute inset-0 animate-pulse bg-secondary" />}
 
-      <img
-        src={currentSrc}
-        alt={alt}
-        loading="lazy"
-        decoding="async"
-        className={`w-full h-full object-cover ${imgClassName || ""}`}
-        onError={() => {
-          setSourceIndex((prev) => {
-            if (prev < sourceList.length - 1) return prev + 1;
-            return prev;
-          });
-        }}
-      />
-
-      {!isResolving && sourceList.length === 0 && (
-        <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/70">
-          <ImageIcon className="w-4 h-4" />
-        </div>
+      {currentSrc ? (
+        <img
+          src={currentSrc}
+          alt={alt}
+          loading="lazy"
+          decoding="async"
+          className={`w-full h-full object-cover ${imgClassName || ""}`}
+          onLoad={() => {
+            const loaded = sourceList[sourceIndex];
+            if (!loaded) return;
+            activityImageCache.set(cacheKey, loaded);
+          }}
+          onError={() => {
+            const failed = sourceList[sourceIndex];
+            if (failed) failedImageSources.add(failed);
+            if (sourceIndex < sourceList.length - 1) {
+              setSourceIndex(sourceIndex + 1);
+              return;
+            }
+            if (primarySource && !primaryFailed) {
+              setPrimaryFailed(true);
+              setIsResolving(true);
+              return;
+            }
+            setSourceList([]);
+          }}
+        />
+      ) : (
+        !isResolving && (
+          <div className="absolute inset-0 flex items-center justify-center px-2 text-center">
+            <span className="text-[11px] font-body text-muted-foreground/80 line-clamp-2">{normalizeActivityName(activity)}</span>
+          </div>
+        )
       )}
     </div>
   );
